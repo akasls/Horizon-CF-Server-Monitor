@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+*.zip
+*.log
+.vscode/
+.idea/
+cf_src/
+komari_src/
+pulse_src/

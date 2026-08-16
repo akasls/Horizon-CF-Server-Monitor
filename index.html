@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-appearance="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Horizon · CF Server Monitor</title>
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="light dark">
+  <meta id="theme-color-meta" name="theme-color" content="#07111f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <!-- 纯静态/跨域部署时可通过 meta[name=apiBase] 配置 Worker 地址，多个地址以英文逗号分隔 -->
+  <!-- <meta name="apiBase" content="https://your-cf-server-monitor.workers.dev"> -->
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <!-- 顶部导航栏 -->
+    <header class="navbar">
+      <div class="logo" id="brand-link" role="button" tabindex="0" title="返回首页">
+        <span class="logo-mark" id="brand-mark">
+          <img src="assets/logo.svg" alt="Horizon Logo" class="site-icon" onerror="this.style.display='none'">
+        </span>
+        <span id="site-title-text" class="logo-text">Horizon Monitor</span>
+      </div>
+
+      <div class="nav-icons">
+        <button id="btn-theme" class="nav-icon-button" type="button" title="切换主题外观" aria-label="Toggle Theme">
+          <svg viewBox="0 0 24 24" class="icon-svg"><path d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36 6.36-1.41-1.41M7.05 7.05 5.64 5.64m12.72 0-1.41 1.41M7.05 16.95l-1.41 1.41"/><circle cx="12" cy="12" r="4"/></svg>
+        </button>
+        <button id="btn-view" class="nav-icon-button" type="button" title="切换列表/卡片视图" aria-label="Toggle View">
+          <svg viewBox="0 0 24 24" class="icon-svg"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>
+        </button>
+        <a id="btn-admin" class="nav-icon-button" href="/admin#admin" title="管理后台" aria-label="Admin Dashboard" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" class="icon-svg"><path d="M12 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-8 6a8 8 0 0 1 16 0"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <!-- 主体容器 -->
+    <main class="container">
+      <!-- 首页视图 -->
+      <section id="home-view" class="view view-active">
+        <!-- 顶部汇总统计卡片 -->
+        <div id="global-stats" class="global-stats"></div>
+
+        <!-- 分类与搜索控制栏 -->
+        <div id="group-bar" class="group-bar">
+          <div class="group-bar__main">
+            <div class="group-title">
+              <span class="group-title__icon">
+                <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+              </span>
+              <span class="group-title__text" id="group-label-text">分类：</span>
+            </div>
+            <div class="group-links" id="group-links"></div>
+          </div>
+
+          <div class="group-actions">
+            <div class="search-box search-box--inline">
+              <span class="search-box__icon"></span>
+              <input id="search-input" type="search" placeholder="搜索节点、分组、系统或地区" autocomplete="off" spellcheck="false">
+            </div>
+          </div>
+        </div>
+
+        <!-- 节点列表/卡片网格 -->
+        <div id="servers-grid" class="card-grid"></div>
+
+        <!-- 空数据提示 -->
+        <div id="empty-state" class="empty-state hidden">
+          <div class="empty-state__icon">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+          </div>
+          <div class="empty-state__title" id="empty-title">没有匹配的服务器</div>
+          <div class="empty-state__description" id="empty-desc">可以尝试切换分组或修改搜索关键词。</div>
+        </div>
+      </section>
+
+      <!-- 单机详情视图 -->
+      <section id="detail-view" class="view hidden">
+        <!-- 详情顶部信息卡片 -->
+        <div class="detail-header-card" id="detail-header"></div>
+
+        <!-- 系统硬件与运行参数规格网格 -->
+        <div class="specs-grid" id="detail-specs"></div>
+
+        <!-- 详情图表类型切换标签 -->
+        <div class="tabs" id="detail-section-tabs"></div>
+
+        <!-- 历史时间范围选择标签 -->
+        <div class="tabs tabs--hours" id="detail-hour-tabs"></div>
+
+        <!-- 详情图表容器 -->
+        <div class="charts-container" id="detail-charts-container"></div>
+      </section>
+    </main>
+
+    <!-- 底部信息与连接状态 -->
+    <footer class="footer" id="site-footer">
+      <div class="footer-content">
+        <span id="footer-text">Powered by CF-Server-Monitor & Horizon Theme.</span>
+        <span class="footer-dot">·</span>
+        <span id="connection-status" class="status-inline status-inline--connecting">连接中</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- 浮层与弹窗容器（Turnstile 验证等） -->
+  <div id="overlay-root"></div>
+  <div id="tooltip-root"></div>
+
+  <noscript>
+    <div style="padding:40px;text-align:center;font-family:sans-serif;color:#e2e8f0;background:#07111f;">
+      <h2>JavaScript Required</h2>
+      <p>Horizon 主题需要启用 JavaScript 才能渲染实时探针监控数据。</p>
+    </div>
+  </noscript>
+
+  <script src="assets/app.js" type="module"></script>
+</body>
+</html>
