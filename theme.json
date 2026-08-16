@@ -1,0 +1,9 @@
+{
+  "name": "Horizon",
+  "version": "1.0.0",
+  "description": "A flat, clean, modern, and precision dashboard theme for CF-Server-Monitor",
+  "author": "akasls",
+  "preview": "docs/preview.png",
+  "homepage": "https://github.com/akasls/Horizon-CF-Server-Monitor",
+  "license": "MIT"
+}

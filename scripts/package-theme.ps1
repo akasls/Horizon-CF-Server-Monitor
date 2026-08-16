@@ -5,11 +5,13 @@ $output = Join-Path $root "Horizon-CF-Server-Monitor.zip"
 
 $inputs = @(
   "index.html",
+  "theme.json",
   "assets/app.css",
   "assets/app.js",
   "assets/logo.svg",
-  "docs/preview.svg",
-  "README.md"
+  "docs/preview.png",
+  "README.md",
+  "LICENSE"
 )
 
 Add-Type -AssemblyName System.IO.Compression
