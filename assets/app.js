@@ -8,7 +8,7 @@ const I18N = {
   'zh-CN': {
     siteTitle: 'Horizon 监控面板',
     fleetWorth: '小鸡价值',
-    fleetWorthSub: '共 {count} 台节点 · 折合',
+    fleetWorthSub: '共 {count} 台 · 剩余折合 ¥ {rem}',
     onlineNodes: '当前在线',
     onlineRatio: '在线率 {pct}% · 共 {total} 台',
     totalTraffic: '流量数据',
@@ -84,7 +84,7 @@ const I18N = {
   'en-US': {
     siteTitle: 'Horizon Monitor',
     fleetWorth: 'Fleet Valuation',
-    fleetWorthSub: '{count} nodes · Approx.',
+    fleetWorthSub: '{count} nodes · Remaining ¥ {rem}',
     onlineNodes: 'Online Nodes',
     onlineRatio: '{pct}% online · {total} total',
     totalTraffic: 'Total Traffic',
@@ -235,6 +235,14 @@ function fmtMB(mb, digits = 1) {
   const v = safeNum(mb, 0);
   if (v >= 1024) return fmtBytes(v * 1024 * 1024, digits);
   return `${Math.round(v)} MB`;
+}
+
+// 格式化金额 (无多余的小数尾数)
+function fmtPrice(amount, currency = '¥') {
+  const n = safeNum(amount, 0);
+  if (n === 0) return '0';
+  const val = Math.round(n);
+  return `${currency}${val}`;
 }
 
 // 紧凑且精准的 RAM/Disk 详情格式 (例如 2.0G / 3.8G)
@@ -610,7 +618,8 @@ function computeRemainingWorth(server) {
 }
 
 function summarizeFleetWorth(servers) {
-  let totalCny = 0;
+  let totalMonthlyCny = 0;
+  let totalRemainingCny = 0;
   let hasPriceCount = 0;
   const cnyRate = state.fxRates.rates.CNY || 7.8;
 
@@ -620,12 +629,17 @@ function summarizeFleetWorth(servers) {
       const monthly = computeServerMonthlyCost(s);
       const curRate = resolveCurrencyRate(s.currency);
       const eurVal = monthly / curRate;
-      const cnyVal = eurVal * cnyRate;
-      totalCny += cnyVal;
+      totalMonthlyCny += eurVal * cnyRate;
+
+      const rem = computeRemainingWorth(s);
+      if (rem && !rem.expired && rem.worth > 0) {
+        const remEur = rem.worth / curRate;
+        totalRemainingCny += remEur * cnyRate;
+      }
       hasPriceCount++;
     }
   }
-  return { totalCny, hasPriceCount };
+  return { totalMonthlyCny, totalRemainingCny, hasPriceCount };
 }
 
 // ==================== 7. 原生 SVG 图表渲染引擎 ====================
@@ -724,17 +738,17 @@ function renderGlobalStats() {
 
   const { total, online, globalSpeedIn, globalSpeedOut, globalNetTx, globalNetRx } = state.stats;
   const onlinePct = total > 0 ? Math.round((online / total) * 100) : 0;
-  const { totalCny, hasPriceCount } = summarizeFleetWorth(state.servers);
+  const { totalMonthlyCny, totalRemainingCny, hasPriceCount } = summarizeFleetWorth(state.servers);
 
   const cardsHtml = `
-    <!-- 小鸡价值 -->
+    <!-- 小鸡价值 (显示月折合与完整剩余价值) -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('fleetWorth')}</span>
         <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
       </div>
-      <div class="stat-box__value">¥ ${totalCny.toFixed(2)}</div>
-      <div class="stat-box__sub">${t('fleetWorthSub', { count: hasPriceCount })}</div>
+      <div class="stat-box__value">¥ ${Math.round(totalMonthlyCny)}<span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:4px;">/月</span></div>
+      <div class="stat-box__sub">${t('fleetWorthSub', { count: hasPriceCount, rem: Math.round(totalRemainingCny) })}</div>
     </article>
 
     <!-- 当前在线 -->
@@ -775,7 +789,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏
+// 8.2 分类标签栏 (纯文字加粗，无高亮色)
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -856,7 +870,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (RAM/Disk 文本优化防溢出，平行放置延迟)
+// 渲染单个探针组件 (无多余尾数、内嵌优雅流量条、合理行高间距)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -879,13 +893,13 @@ function renderServerCard(server) {
   const remDaysText = remWorth ? (remWorth.expired ? '已过期' : `余 ${remWorth.days}天`) : '';
   const activityText = remDaysText ? `${uptimeText} · ${remDaysText}` : uptimeText;
 
-  // 价值：购买价格 剩余价格
+  // 价值：购买价格 剩余价格 (无多余尾数，如 ¥38/月 · 剩余 ¥266)
   const priceVal = safeNum(server.price, 0);
   let priceText = '';
   if (priceVal > 0) {
     const cycle = server.billing_cycle === 'year' ? '年' : server.billing_cycle === 'half-year' ? '半年' : server.billing_cycle === 'quarter' ? '季' : '月';
-    const buyPrice = `${server.currency || '¥'}${priceVal.toFixed(2)}${server.billing_cycle ? `/${cycle}` : ''}`;
-    const remVal = remWorth ? `${server.currency || '¥'}${remWorth.worth.toFixed(2)}` : '--';
+    const buyPrice = `${fmtPrice(priceVal, server.currency || '¥')}${server.billing_cycle ? `/${cycle}` : ''}`;
+    const remVal = remWorth ? fmtPrice(remWorth.worth, server.currency || '¥') : '--';
     priceText = `${buyPrice} · 剩余 ${remVal}`;
   } else if (priceVal === -1 || server.price === '0') {
     priceText = '免费 · 永久';
@@ -893,13 +907,13 @@ function renderServerCard(server) {
     priceText = '--';
   }
 
-  // 流量数据
+  // 流量数据与内嵌式微进度条
   const trafficLimit = server.traffic_limit;
   let trafficValText = '';
-  let trafficTrackHtml = '';
+  let limitBytes = 0;
+  let tfPct = 0;
 
   if (trafficLimit && trafficLimit !== '0') {
-    let limitBytes = 0;
     const tStr = String(trafficLimit).toUpperCase();
     if (tStr.endsWith('TB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024 * 1024;
     else if (tStr.endsWith('GB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024;
@@ -907,10 +921,8 @@ function renderServerCard(server) {
     else limitBytes = safeNum(trafficLimit, 0);
 
     const monthlyUsed = safeNum(server.net_rx_monthly) + safeNum(server.net_tx_monthly);
-    const tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
-
-    trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)} · ${tfPct.toFixed(0)}%`;
-    trafficTrackHtml = `<div class="traffic-track-mini"><span style="width: ${tfPct}%"></span></div>`;
+    tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
+    trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)} · ${Math.round(tfPct)}%`;
   } else {
     const totalBytes = safeNum(server.net_rx) + safeNum(server.net_tx);
     trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
@@ -977,15 +989,17 @@ function renderServerCard(server) {
           <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
         </div>
 
-        <!-- 流量 -->
+        <!-- 流量 (内嵌式微进度条) -->
         <div class="card-info-row">
           <span class="info-label">
             <svg class="row-icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
             ${t('traffic')}
           </span>
-          <span class="info-val">${trafficValText}</span>
+          <div class="traffic-val-box">
+            ${limitBytes > 0 ? `<div class="traffic-mini-bar"><div class="traffic-mini-fill" style="width: ${tfPct}%"></div></div>` : ''}
+            <span class="info-val">${trafficValText}</span>
+          </div>
         </div>
-        ${trafficTrackHtml}
 
         <!-- 活跃: 在线XX天余XX天 -->
         <div class="card-info-row">
@@ -1159,7 +1173,7 @@ function renderActiveDetailChart(server) {
     xLabels.push({ index: i, label });
   }
 
-  // 顶部导航文字链接 (纯净分类)
+  // 顶部导航文字链接 (纯文字加粗，无高亮色)
   const navTabs = [
     { key: 'load', label: t('tabLoad') },
     { key: 'network', label: t('tabNetwork') },
@@ -1366,7 +1380,7 @@ function cycleAppearance(event) {
     applyAppearance();
   };
 
-  // 支持 View Transitions API 时，从点击按钮中心向外波浪扩散扩散
+  // 支持 View Transitions API 时，从点击按钮中心向外波浪扩散
   if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     updateThemeDOM();
     return;

@@ -323,7 +323,7 @@ button {
   font-family: var(--font-mono);
 }
 
-/* Group & Search Bar - Pure Text Links */
+/* Group & Search Bar - Pure Text Links (No Color Highlight, Just Bold) */
 .group-bar {
   margin: 0.75rem 0 1.15rem;
   display: flex;
@@ -375,7 +375,7 @@ button {
 }
 
 .group-text-link.is-active {
-  color: var(--primary);
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -401,17 +401,19 @@ button {
   gap: 8px;
 }
 
+/* 胶囊搜索组件样式 */
 .search-box--inline {
-  width: 230px;
-  padding: 0 10px;
-  height: 30px;
-  border-radius: var(--radius-sm);
+  width: 240px;
+  padding: 0 14px;
+  height: 32px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border-color);
   background: var(--card-bg);
+  transition: border-color 0.15s ease;
 }
 
 .search-box--inline:focus-within {
-  border-color: var(--primary);
+  border-color: var(--border-hover);
 }
 
 .search-box__icon {
@@ -472,7 +474,7 @@ button {
 
 .server-card__button {
   width: 100%;
-  padding: 1.1rem 1.15rem 1rem;
+  padding: 1.15rem 1.2rem 1.05rem;
   text-align: left;
   cursor: pointer;
   display: flex;
@@ -550,12 +552,12 @@ button {
   flex-shrink: 0;
 }
 
-/* Row 2: Dials (CPU, RAM, Disk) - 详细规格文字完整展示 */
+/* Row 2: Dials (CPU, RAM, Disk) */
 .dials {
   display: flex;
   justify-content: space-between;
   gap: 4px;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.65rem;
 }
 
 .dial-group {
@@ -589,7 +591,7 @@ button {
   align-items: center;
   justify-content: center;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -597,13 +599,14 @@ button {
 
 .dial-label {
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   line-height: 1.2;
 }
 
 .dial-val {
   font-size: 0.64rem;
+  font-weight: 400;
   color: var(--text-soft);
   font-family: var(--font-mono);
   white-space: nowrap;
@@ -613,23 +616,23 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* 分割线 */
+/* 分割线 (加大间隔与呼吸感) */
 .card-divider {
   height: 1px;
   background: var(--border-color);
-  margin: 0.6rem 0 0.65rem;
+  margin: 0.75rem 0 0.8rem;
   width: 100%;
 }
 
-/* 4 行核心指标: 速率 / 流量 / 活跃 / 价值 */
+/* 4 行核心指标: 速率 / 流量 / 活跃 / 价值 (适当拉开高度间距) */
 .card-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.74rem;
-  line-height: 1.55;
+  line-height: 1.6;
   gap: 8px;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.52rem;
 }
 
 .info-label {
@@ -655,7 +658,7 @@ button {
 
 .info-val {
   color: var(--text-main);
-  font-weight: 500;
+  font-weight: 400;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -664,18 +667,25 @@ button {
   white-space: nowrap;
 }
 
-/* 流量进度条 */
-.traffic-track-mini {
-  width: 100%;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--card-bg-subtle);
-  overflow: hidden;
-  margin: 0.1rem 0 0.3rem;
+/* 内嵌式优雅流量条 */
+.traffic-val-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.traffic-track-mini span {
-  display: block;
+.traffic-mini-bar {
+  width: 36px;
+  height: 4px;
+  background: var(--card-bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.traffic-mini-fill {
   height: 100%;
   background: var(--primary);
   border-radius: inherit;
@@ -687,7 +697,7 @@ button {
   grid-template-columns: repeat(4, 1fr);
   text-align: center;
   gap: 4px;
-  padding-top: 0.1rem;
+  padding-top: 0.15rem;
 }
 
 .ping-cell {
@@ -700,11 +710,12 @@ button {
 .ping-cell__label {
   font-size: 0.68rem;
   color: var(--text-soft);
+  font-weight: 500;
 }
 
 .ping-cell__val {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--font-mono);
 }
 
@@ -868,7 +879,7 @@ button {
 
 .spec-val {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 500;
   text-align: right;
   word-break: break-word;
   font-family: var(--font-mono);
@@ -898,7 +909,7 @@ button {
 
 .bar-group__meta span:last-child {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
@@ -918,7 +929,7 @@ button {
   transition: width 0.3s ease;
 }
 
-/* Detail Chart Card with Text Tabs & Dropdown (Flat) */
+/* Detail Chart Card (No Highlight Color, Pure Bold Tab Links) */
 .charts-container {
   display: grid;
   grid-template-columns: 1fr;
@@ -969,7 +980,7 @@ button {
 }
 
 .chart-nav-link.is-active {
-  color: var(--primary);
+  color: var(--text-main);
   font-weight: 700;
 }
 
@@ -988,7 +999,7 @@ button {
 
 .chart-val-summary {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1009,7 +1020,7 @@ button {
 }
 
 .hour-select:focus {
-  border-color: var(--primary);
+  border-color: var(--border-hover);
 }
 
 .chart-svg {
