@@ -16,7 +16,6 @@ const I18N = {
     netSpeed: '网络速率',
     groupAll: '全部',
     groupUngrouped: '未分组',
-    groupPrefix: '分类：',
     searchPlaceholder: '搜索节点、分组、系统或地区',
     emptyTitle: '没有匹配的服务器',
     emptyDesc: '可以尝试切换分类标签或修改搜索关键词。',
@@ -29,7 +28,7 @@ const I18N = {
     disconnected: '连接断开',
     free: '免费',
     notSet: '未设置',
-    daysLeft: '余 {days} 天',
+    daysLeft: '余{days}天',
     expired: '已过期',
     permanent: '永久',
     remainingWorth: '剩余价值',
@@ -93,7 +92,6 @@ const I18N = {
     netSpeed: 'Network Speed',
     groupAll: 'All',
     groupUngrouped: 'Ungrouped',
-    groupPrefix: 'Group:',
     searchPlaceholder: 'Search node, group, OS, or region',
     emptyTitle: 'No matching servers found',
     emptyDesc: 'Try selecting a different group or refining search keywords.',
@@ -180,7 +178,7 @@ const state = {
   sysConfig: {},
   selectedGroup: 'ALL',
   searchQuery: '',
-  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark', // 仅日间 / 夜间
+  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark',
   currentRoute: { view: 'home', serverId: null },
   detailServer: null,
   detailHours: 24,
@@ -727,7 +725,7 @@ function buildSvgLineChart(series, options = {}) {
 
 // ==================== 8. 页面渲染模块 ====================
 
-// 8.1 顶部汇总统计方块 - 保证网络速率组件与标题严格左对齐
+// 8.1 顶部汇总统计方块 - 干净中性配色，网络速率左对齐
 function renderGlobalStats() {
   const root = document.getElementById('global-stats');
   if (!root) return;
@@ -767,17 +765,17 @@ function renderGlobalStats() {
       <div class="stat-box__sub">${t('totalTrafficSub', { rx: fmtBytes(globalNetRx, 1), tx: fmtBytes(globalNetTx, 1) })}</div>
     </article>
 
-    <!-- 网络速率 (严格左对齐) -->
+    <!-- 网络速率 (纯净自然配色，严格左对齐) -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('netSpeed')}</span>
         <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
       </div>
       <div class="stat-box__value">
-        <span class="speed-item text-down"><span class="speed-arrow">↓</span> ${fmtSpeed(globalSpeedIn)}</span>
+        <span class="speed-item">↓ ${fmtSpeed(globalSpeedIn)}</span>
       </div>
       <div class="stat-box__sub">
-        <span class="speed-item text-up"><span class="speed-arrow">↑</span> ${fmtSpeed(globalSpeedOut)}</span>
+        <span class="speed-item">↑ ${fmtSpeed(globalSpeedOut)}</span>
       </div>
     </article>
   `;
@@ -785,7 +783,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏 - 文字显示格式：全部 | 分类1 | 分类2
+// 8.2 分类标签栏 - 纯文本显示：全部 | 分类1 | 分类2 (无'分类：'前缀，无数量)
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -799,15 +797,14 @@ function renderGroupBar() {
   const items = [];
   items.push(`
     <span class="group-text-link ${state.selectedGroup === 'ALL' ? 'is-active' : ''}" data-group="ALL">
-      ${t('groupAll')} (${state.servers.length})
+      ${t('groupAll')}
     </span>
   `);
 
   for (const g of groups) {
-    const count = state.servers.filter(s => (s.server_group || '').trim() === g).length;
     items.push(`
       <span class="group-text-link ${state.selectedGroup === g ? 'is-active' : ''}" data-group="${escapeHtml(g)}">
-        ${escapeHtml(g)} (${count})
+        ${escapeHtml(g)}
       </span>
     `);
   }
@@ -815,7 +812,7 @@ function renderGroupBar() {
   container.innerHTML = items.join('<span class="group-sep">|</span>');
 }
 
-// 8.3 节点列表与卡片渲染 (一行4个卡片，去除多余包裹)
+// 8.3 节点列表与卡片渲染
 function filteredServers() {
   let list = state.servers.slice();
 
@@ -867,6 +864,13 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
+// 渲染单个探针组件 (按要求排布)：
+// 国旗 探针名称                         在线状态
+// CPU          RAM          Disk
+// ---------------------------------------------- (分割线)
+// 网络                           ↑XXX/s  ↓XXX/s
+// 延迟            电信 8ms  联通 12ms  移动 10ms  BGP 15ms
+// 在线天数 18天                  总价值 · 剩余价值 · 剩余天数
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -878,27 +882,39 @@ function renderServerCard(server) {
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
 
-  const uptimeStr = server.boot_time ? fmtDuration((Date.now() - safeNum(server.boot_time)) / 1000) : (online ? '在线' : '离线');
+  // 在线天数计算
+  let uptimeDaysStr = '在线 0天';
+  if (server.boot_time) {
+    const days = Math.floor((Date.now() - safeNum(server.boot_time)) / 86400000);
+    uptimeDaysStr = days > 0 ? `在线 ${days}天` : (online ? '在线 <1天' : '离线');
+  } else {
+    uptimeDaysStr = online ? '在线' : '离线';
+  }
 
-  // 延迟数据 - 纯文本流，去除多余标签边框
-  const renderPingText = (label, val, loss) => {
-    if (val == null || val === false) return '';
-    const num = Math.round(Number(val));
-    const isLoss = safeNum(loss) > 0;
-    const tone = isLoss ? 'ping-text--loss' : num < 80 ? 'ping-text--good' : num < 180 ? 'ping-text--medium' : 'ping-text--bad';
-    return `<span class="ping-text ${tone}">${label} ${num}ms${isLoss ? ` (${loss}%)` : ''}</span>`;
-  };
+  // 延迟排版: 电信 8ms 联通 12ms 移动 10ms BGP 15ms
+  const pingCt = server.ping_ct != null ? `${Math.round(server.ping_ct)}ms` : '--';
+  const pingCu = server.ping_cu != null ? `${Math.round(server.ping_cu)}ms` : '--';
+  const pingCm = server.ping_cm != null ? `${Math.round(server.ping_cm)}ms` : '--';
+  const pingBd = server.ping_bd != null ? `${Math.round(server.ping_bd)}ms` : '--';
+  const pingsText = `电信 ${pingCt}  联通 ${pingCu}  移动 ${pingCm}  BGP ${pingBd}`;
 
-  const pingsList = [
-    renderPingText('电信', server.ping_ct, server.loss_ct),
-    renderPingText('联通', server.ping_cu, server.loss_cu),
-    renderPingText('移动', server.ping_cm, server.loss_cm),
-    renderPingText('BGP', server.ping_bd, server.loss_bd)
-  ].filter(Boolean);
+  // 价值与剩余价值计算: 总价值 · 剩余价值 · 剩余天数
+  const priceVal = safeNum(server.price, 0);
+  const remWorth = computeRemainingWorth(server);
+  let valuationText = '';
 
-  const pingsHtml = pingsList.length ? pingsList.join('<span class="ping-sep">·</span>') : '';
+  if (priceVal > 0) {
+    const totalValStr = `${server.currency || '¥'}${priceVal.toFixed(2)}`;
+    const remValStr = remWorth ? `${server.currency || '¥'}${remWorth.worth.toFixed(2)}` : '--';
+    const daysStr = remWorth ? (remWorth.expired ? '已过期' : `余${remWorth.days}天`) : '--';
+    valuationText = `${totalValStr} · ${remValStr} · ${daysStr}`;
+  } else if (priceVal === -1 || server.price === '0') {
+    valuationText = '免费 · 永久';
+  } else {
+    valuationText = '--';
+  }
 
-  // 流量使用进度
+  // 流量进度条 (若设置了限制)
   const trafficLimit = server.traffic_limit;
   let trafficHtml = '';
   if (trafficLimit && trafficLimit !== '0') {
@@ -923,62 +939,23 @@ function renderServerCard(server) {
     `;
   }
 
-  // 胶囊外包裹：价格周期、剩余天数与剩余价值整合为一个胶囊
-  const priceVal = safeNum(server.price, 0);
-  let priceStr = '';
-  if (priceVal > 0) {
-    const cycle = server.billing_cycle === 'year' ? '年' : server.billing_cycle === 'half-year' ? '半年' : server.billing_cycle === 'quarter' ? '季' : '月';
-    priceStr = `${server.currency || '¥'}${priceVal.toFixed(2)}/${cycle}`;
-  } else if (priceVal === -1 || server.price === '0') {
-    priceStr = t('free');
-  }
-
-  const remWorth = computeRemainingWorth(server);
-  let capsuleHtml = '';
-  if (priceStr || remWorth) {
-    capsuleHtml = `
-      <div class="card-capsule-row">
-        <div class="worth-capsule">
-          ${priceStr ? `<span>${priceStr}</span>` : ''}
-          ${remWorth ? `
-            <span class="capsule-sep">·</span>
-            <span>${remWorth.expired ? t('expired') : `余 ${remWorth.days} 天`}</span>
-            <span class="capsule-sep">·</span>
-            <span class="capsule-worth">${server.currency || '¥'} ${remWorth.worth.toFixed(2)}</span>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }
-
-  const osName = server.os || 'Linux';
-  const osIconUrl = resolveOsIcon(osName);
-
   return `
     <article class="server-card" data-id="${escapeHtml(id)}">
       <div class="server-card__button" role="button" tabindex="0" onclick="location.hash = '#/server/${encodeURIComponent(id)}'">
-        <!-- 头部信息 (纯文本干净展示) -->
+        <!-- 行 1: 国旗 探针名称 与 在线状态 -->
         <div class="card-header">
-          <div class="name-os">
-            <div class="srv-name">
-              <span class="srv-flag">
-                <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
-              </span>
-              <span class="srv-name-text">${escapeHtml(name)}</span>
-            </div>
-            <div class="srv-os">
-              <img src="${osIconUrl}" class="os-icon" alt="${escapeHtml(osName)}" onerror="this.style.display='none'">
-              <span>${escapeHtml(osName)}</span>
-              <span>·</span>
-              <span>${uptimeStr}</span>
-            </div>
+          <div class="srv-name">
+            <span class="srv-flag">
+              <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
+            </span>
+            <span class="srv-name-text">${escapeHtml(name)}</span>
           </div>
           <span class="status-badge ${online ? 'status-online' : 'status-offline'}">
             ${online ? '● 在线' : '● 离线'}
           </span>
         </div>
 
-        <!-- 3 个紧凑资源占用圆环 -->
+        <!-- 行 2: CPU RAM Disk 圆环 -->
         <div class="dials">
           <div class="dial-group">
             <div class="circle-wrap" style="--pct: ${cpuPct}%">
@@ -1005,26 +982,34 @@ function renderServerCard(server) {
           </div>
         </div>
 
-        <!-- 网络速率与延迟纯净列表 -->
-        <div class="list-data">
-          <div class="card-net-row">
-            <span class="net-speed-val"><span class="speed-arrow">↓</span> ${fmtSpeed(server.net_in_speed)}</span>
-            <span class="net-speed-val"><span class="speed-arrow">↑</span> ${fmtSpeed(server.net_out_speed)}</span>
-          </div>
+        <!-- 行 3: 分割线 -->
+        <div class="card-divider"></div>
 
-          ${pingsHtml ? `<div class="card-ping-row">${pingsHtml}</div>` : ''}
-
-          ${trafficHtml}
+        <!-- 行 4: 网络 ↑XXX/s ↓XXX/s -->
+        <div class="card-info-row">
+          <span class="info-label">网络</span>
+          <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
         </div>
 
-        <!-- 底部胶囊包裹 -->
-        ${capsuleHtml}
+        <!-- 行 5: 延迟 电信 8ms 联通 12ms 移动 10ms BGP 15ms -->
+        <div class="card-info-row">
+          <span class="info-label">延迟</span>
+          <span class="info-val ping-val-list">${pingsText}</span>
+        </div>
+
+        ${trafficHtml}
+
+        <!-- 行 6: 在线天数 18天 与 总价值·剩余价值·剩余天数 -->
+        <div class="card-info-row card-bottom-row">
+          <span class="info-label">${uptimeDaysStr}</span>
+          <span class="info-val valuation-val">${valuationText}</span>
+        </div>
       </div>
     </article>
   `;
 }
 
-// 8.4 详情页渲染 - 左上探针名，右上返回按钮；整合 3 大面板；图表头部分类与下拉框
+// 8.4 详情页渲染
 async function renderDetailPage() {
   const container = document.getElementById('detail-view');
   const serverId = state.currentRoute.serverId;
