@@ -1090,15 +1090,15 @@ button {
   flex-shrink: 0;
 }
 
-/* Footer */
+/* Footer - 纯净无背景，沉底融合 */
 .footer {
   margin-top: auto;
-  padding: 1.2rem 1rem;
+  padding: 1.5rem 1rem 2rem;
   text-align: center;
   font-size: 0.76rem;
   color: var(--text-soft);
   border-top: 1px solid var(--border-color);
-  background: var(--card-bg);
+  background: transparent;
   width: 100%;
 }
 
@@ -1110,28 +1110,21 @@ button {
   justify-content: center;
 }
 
+.footer-link {
+  color: var(--text-muted);
+  text-decoration: none !important;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.footer-link:hover {
+  color: var(--text-main);
+  text-decoration: none !important;
+}
+
 .footer-dot {
   opacity: 0.4;
 }
-
-.status-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.status-inline::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.status-inline--live { color: var(--success); }
-.status-inline--fallback { color: var(--warning); }
-.status-inline--connecting { color: var(--warning); }
-.status-inline--disconnected { color: var(--danger); }
 
 /* Turnstile Modal */
 .probe-overlay {

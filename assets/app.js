@@ -245,18 +245,36 @@ function fmtPrice(amount, currency = '¥') {
   return `${currency}${val}`;
 }
 
-// 流量限制字符串智能换算 (5000GB -> 5 TB / 4.9 TB, 1000GB -> 1 TB)
+/**
+ * 流量限制解析（精准适配 CF-Server-Monitor 规范）
+ * CF-Server-Monitor 数据库在无单位纯数字时以 GB 为单位（例如 1000 -> 1000GB，19 -> 19GB）
+ */
 function parseTrafficBytes(val) {
-  if (!val || val === '0' || val === 0) return 0;
-  if (typeof val === 'number') return val;
+  if (val == null || val === '' || val === '0' || val === 0 || val === -1 || val === '-1') return 0;
+
+  if (typeof val === 'number') {
+    // 若数值小于 100000（如 19, 100, 1000, 5000），按 GB 换算为字节
+    if (val < 100000) {
+      return val * 1024 * 1024 * 1024;
+    }
+    return val;
+  }
+
   const s = String(val).trim().toUpperCase();
   const num = parseFloat(s);
-  if (isNaN(num)) return 0;
+  if (isNaN(num) || num <= 0) return 0;
+
   if (s.endsWith('PB') || s.endsWith('P')) return num * 1024 * 1024 * 1024 * 1024 * 1024;
   if (s.endsWith('TB') || s.endsWith('T')) return num * 1024 * 1024 * 1024 * 1024;
   if (s.endsWith('GB') || s.endsWith('G')) return num * 1024 * 1024 * 1024;
   if (s.endsWith('MB') || s.endsWith('M')) return num * 1024 * 1024;
   if (s.endsWith('KB') || s.endsWith('K')) return num * 1024;
+  if (s.endsWith('B')) return num;
+
+  // 纯数字字符串 (例如 "1000", "19", "2000")
+  if (num < 100000) {
+    return num * 1024 * 1024 * 1024;
+  }
   return num;
 }
 
@@ -446,7 +464,7 @@ async function ensureTurnstile() {
               state.config = data;
               overlay.remove();
               resolve();
-            } catch (e) {
+            } catch {
               errBox.textContent = '验证失败，请重试';
               try { window.turnstile.reset(); } catch {}
             }
@@ -891,7 +909,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (无进度条、流量智能转换至TB、无多余尾数、合理行高间距)
+// 渲染单个探针组件 (无进度条、流量精准按GB/TB解析、免费直接显示免费、无数据Ping显示--)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -914,39 +932,49 @@ function renderServerCard(server) {
   const remDaysText = remWorth ? (remWorth.expired ? '已过期' : `余 ${remWorth.days}天`) : '';
   const activityText = remDaysText ? `${uptimeText} · ${remDaysText}` : uptimeText;
 
-  // 价值：购买价格 剩余价格 (无多余尾数，如 ¥38/月 · 剩余 ¥266)
-  const priceVal = safeNum(server.price, 0);
+  // 价值：购买价格 剩余价格 (免费机器直接显示 免费)
+  const priceVal = safeNum(server.price, null);
   let priceText = '';
-  if (priceVal > 0) {
+  if (priceVal !== null && priceVal > 0) {
     const cycle = server.billing_cycle === 'year' ? '年' : server.billing_cycle === 'half-year' ? '半年' : server.billing_cycle === 'quarter' ? '季' : '月';
     const buyPrice = `${fmtPrice(priceVal, server.currency || '¥')}${server.billing_cycle ? `/${cycle}` : ''}`;
-    const remVal = remWorth ? fmtPrice(remWorth.worth, server.currency || '¥') : '--';
+    const remVal = remWorth && !remWorth.expired ? fmtPrice(remWorth.worth, server.currency || '¥') : '--';
     priceText = `${buyPrice} · 剩余 ${remVal}`;
-  } else if (priceVal === -1 || server.price === '0') {
-    priceText = '免费 · 永久';
+  } else if (server.price === '0' || server.price === '0.00' || priceVal === 0 || server.is_free === true) {
+    priceText = '免费';
   } else {
     priceText = '--';
   }
 
-  // 流量数据 (自动单位换算: 5000GB -> 4.9 TB, 1000GB -> 1 TB)
+  // 流量数据 (精准换算 limitBytes 与已用流量)
   const limitBytes = parseTrafficBytes(server.traffic_limit);
   let trafficValText = '';
 
+  let monthlyUsed = safeNum(server.net_rx_monthly, 0) + safeNum(server.net_tx_monthly, 0);
+  if (monthlyUsed === 0) {
+    monthlyUsed = safeNum(server.net_rx, 0) + safeNum(server.net_tx, 0);
+  }
+
   if (limitBytes > 0) {
-    const monthlyUsed = safeNum(server.net_rx_monthly) + safeNum(server.net_tx_monthly);
     const tfPct = clamp((monthlyUsed / limitBytes) * 100, 0, 100);
     trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${fmtTrafficLimit(server.traffic_limit)} · ${Math.round(tfPct)}%`;
   } else {
-    const totalBytes = safeNum(server.net_rx) + safeNum(server.net_tx);
+    const totalBytes = safeNum(server.net_rx, 0) + safeNum(server.net_tx, 0);
     trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
   }
 
-  // 平行放置延迟排版
-  const fmtPing = (val) => (val != null ? `${Math.round(val)}ms` : '--');
+  // 平行放置延迟排版 (0 或 null 为未测试/无数据，显示 --)
+  const fmtPing = (val) => {
+    const n = safeNum(val, 0);
+    if (!val || n <= 0) return '--';
+    return `${Math.round(n)}ms`;
+  };
   const pingTone = (val) => {
-    if (val == null) return '';
-    const num = Math.round(Number(val));
-    return num < 80 ? 'ping-cell__val--good' : num < 180 ? 'ping-cell__val--med' : 'ping-cell__val--bad';
+    const num = safeNum(val, 0);
+    if (num <= 0) return '';
+    if (num < 80) return 'ping-cell__val--good';
+    if (num < 180) return 'ping-cell__val--med';
+    return 'ping-cell__val--bad';
   };
 
   return `
@@ -1514,7 +1542,7 @@ function generateDemoData() {
       billing_cycle: 'month',
       currency: '¥',
       expire_date: new Date(now + 210 * 86400000).toISOString().split('T')[0],
-      traffic_limit: '1000GB',
+      traffic_limit: '1000',
       ip_v4: '1',
       ip_v6: '1',
       boot_time: String(now - 42 * 86400000),
@@ -1555,7 +1583,7 @@ function generateDemoData() {
       billing_cycle: 'year',
       currency: '¥',
       expire_date: new Date(now + 145 * 86400000).toISOString().split('T')[0],
-      traffic_limit: '2000GB',
+      traffic_limit: '2000',
       ip_v4: '1',
       ip_v6: '1',
       boot_time: String(now - 18 * 86400000),
@@ -1596,7 +1624,7 @@ function generateDemoData() {
       billing_cycle: 'month',
       currency: '$',
       expire_date: new Date(now + 28 * 86400000).toISOString().split('T')[0],
-      traffic_limit: '5000GB',
+      traffic_limit: '5000',
       ip_v4: '1',
       ip_v6: '1',
       boot_time: String(now - 95 * 86400000),
@@ -1637,7 +1665,7 @@ function generateDemoData() {
       billing_cycle: 'month',
       currency: '$',
       expire_date: new Date(now + 320 * 86400000).toISOString().split('T')[0],
-      traffic_limit: '1500GB',
+      traffic_limit: '1500',
       ip_v4: '1',
       ip_v6: '1',
       boot_time: String(now - 33 * 86400000),
