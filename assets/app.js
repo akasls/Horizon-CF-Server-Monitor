@@ -1,6 +1,6 @@
 /**
  * Horizon Theme for CF-Server-Monitor
- * Clean & Modern Minimalist Dashboard Style
+ * Clean, Modern & Elegant Minimalist Dashboard Style
  */
 
 // ==================== 1. 多语言字典与常量 ====================
@@ -725,7 +725,7 @@ function buildSvgLineChart(series, options = {}) {
 
 // ==================== 8. 页面渲染模块 ====================
 
-// 8.1 顶部汇总统计方块 - 干净中性配色，网络速率左对齐
+// 8.1 顶部汇总统计方块
 function renderGlobalStats() {
   const root = document.getElementById('global-stats');
   if (!root) return;
@@ -765,7 +765,7 @@ function renderGlobalStats() {
       <div class="stat-box__sub">${t('totalTrafficSub', { rx: fmtBytes(globalNetRx, 1), tx: fmtBytes(globalNetTx, 1) })}</div>
     </article>
 
-    <!-- 网络速率 (纯净自然配色，严格左对齐) -->
+    <!-- 网络速率 -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('netSpeed')}</span>
@@ -783,7 +783,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏 - 纯文本显示：全部 | 分类1 | 分类2 (无'分类：'前缀，无数量)
+// 8.2 分类标签栏
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -864,13 +864,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (按要求排布)：
-// 国旗 探针名称                         在线状态
-// CPU          RAM          Disk
-// ---------------------------------------------- (分割线)
-// 网络                           ↑XXX/s  ↓XXX/s
-// 延迟            电信 8ms  联通 12ms  移动 10ms  BGP 15ms
-// 在线天数 18天                  总价值 · 剩余价值 · 剩余天数
+// 渲染单个探针组件 (排布宽松有呼吸感)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -882,7 +876,7 @@ function renderServerCard(server) {
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
 
-  // 在线天数计算
+  // 在线天数
   let uptimeDaysStr = '在线 0天';
   if (server.boot_time) {
     const days = Math.floor((Date.now() - safeNum(server.boot_time)) / 86400000);
@@ -891,14 +885,14 @@ function renderServerCard(server) {
     uptimeDaysStr = online ? '在线' : '离线';
   }
 
-  // 延迟排版: 电信 8ms 联通 12ms 移动 10ms BGP 15ms
+  // 延迟排版
   const pingCt = server.ping_ct != null ? `${Math.round(server.ping_ct)}ms` : '--';
   const pingCu = server.ping_cu != null ? `${Math.round(server.ping_cu)}ms` : '--';
   const pingCm = server.ping_cm != null ? `${Math.round(server.ping_cm)}ms` : '--';
   const pingBd = server.ping_bd != null ? `${Math.round(server.ping_bd)}ms` : '--';
   const pingsText = `电信 ${pingCt}  联通 ${pingCu}  移动 ${pingCm}  BGP ${pingBd}`;
 
-  // 价值与剩余价值计算: 总价值 · 剩余价值 · 剩余天数
+  // 价值与剩余价值计算
   const priceVal = safeNum(server.price, 0);
   const remWorth = computeRemainingWorth(server);
   let valuationText = '';
@@ -914,7 +908,7 @@ function renderServerCard(server) {
     valuationText = '--';
   }
 
-  // 流量进度条 (若设置了限制)
+  // 流量进度条
   const trafficLimit = server.traffic_limit;
   let trafficHtml = '';
   if (trafficLimit && trafficLimit !== '0') {
@@ -1320,7 +1314,7 @@ function applyAppearance() {
 
   const themeMeta = document.getElementById('theme-color-meta');
   if (themeMeta) {
-    themeMeta.content = effective === 'dark' ? '#0a0f1d' : '#f8fafc';
+    themeMeta.content = effective === 'dark' ? '#0b1120' : '#f8fafc';
   }
 
   const btnTheme = document.getElementById('btn-theme');
