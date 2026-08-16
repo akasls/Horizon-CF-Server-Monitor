@@ -237,14 +237,17 @@ function fmtMB(mb, digits = 1) {
   return `${Math.round(v)} MB`;
 }
 
+// 紧凑且精准的 RAM/Disk 详情格式 (例如 2.0G / 3.8G)
 function fmtSizeDetail(usedMB, totalMB) {
   const u = safeNum(usedMB, 0);
   const t = safeNum(totalMB, 0);
   if (!t) return '--';
   if (t >= 1024) {
-    return `${(u / 1024).toFixed(1)} GB / ${(t / 1024).toFixed(1)} GB`;
+    const uG = (u / 1024).toFixed(1);
+    const tG = (t / 1024).toFixed(1);
+    return `${uG}G / ${tG}G`;
   }
-  return `${Math.round(u)} MB / ${Math.round(t)} MB`;
+  return `${Math.round(u)}M / ${Math.round(t)}M`;
 }
 
 function pad2(n) {
@@ -284,27 +287,6 @@ function isServerOnline(server) {
   const interval = safeNum(server.report_interval, 60);
   const threshold = Math.max(interval * 2500, 300000);
   return (Date.now() - last) <= threshold;
-}
-
-function resolveOsIcon(os) {
-  const s = String(os || '').toLowerCase();
-  let iconName = 'linux';
-  if (s.includes('ubuntu')) iconName = 'ubuntu';
-  else if (s.includes('debian')) iconName = 'debian';
-  else if (s.includes('alpine')) iconName = 'alpine';
-  else if (s.includes('centos')) iconName = 'centos';
-  else if (s.includes('redhat') || s.includes('rhel')) iconName = 'redhat';
-  else if (s.includes('fedora')) iconName = 'fedora';
-  else if (s.includes('arch')) iconName = 'arch';
-  else if (s.includes('windows')) iconName = 'windows';
-  else if (s.includes('darwin') || s.includes('macos') || s.includes('apple')) iconName = 'darwin';
-  else if (s.includes('openwrt')) iconName = 'openwrt';
-  else if (s.includes('freebsd')) iconName = 'freebsd';
-  else if (s.includes('alma')) iconName = 'almalinux';
-  else if (s.includes('rocky')) iconName = 'rocky';
-  else if (s.includes('synology') || s.includes('dsm')) iconName = 'synology';
-
-  return `/os-icons/${iconName}.svg`;
 }
 
 // ==================== 4. API Client & Turnstile 鉴权 ====================
@@ -874,7 +856,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (按要求重构：呼吸点、RAM/Disk详情规格、速率/流量/活跃/价值、平行放置延迟)
+// 渲染单个探针组件 (RAM/Disk 文本优化防溢出，平行放置延迟)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -886,7 +868,7 @@ function renderServerCard(server) {
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
 
-  // RAM 和 Disk 详细规格文本 (例如: 2.0 GB / 3.8 GB)
+  // RAM 和 Disk 详细规格文本 (例如: 2.0G / 3.8G)
   const ramDetailText = fmtSizeDetail(server.ram_used, server.ram_total);
   const diskDetailText = fmtSizeDetail(server.disk_used, server.disk_total);
 
@@ -1177,7 +1159,7 @@ function renderActiveDetailChart(server) {
     xLabels.push({ index: i, label });
   }
 
-  // 顶部导航文字链接 (纯净分类，无'监控详情：')
+  // 顶部导航文字链接 (纯净分类)
   const navTabs = [
     { key: 'load', label: t('tabLoad') },
     { key: 'network', label: t('tabNetwork') },
@@ -1351,7 +1333,7 @@ function updateConnectionState(st) {
   }
 }
 
-// ==================== 9. 外观主题切换 (仅日间 / 夜间) ====================
+// ==================== 9. 外观主题切换 (按钮起点圆形波浪扩散动画) ====================
 function applyAppearance() {
   const root = document.documentElement;
   const effective = state.themeMode === 'light' ? 'light' : 'dark';
@@ -1375,10 +1357,61 @@ function applyAppearance() {
   }
 }
 
-function cycleAppearance() {
-  state.themeMode = state.themeMode === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('horizon_appearance', state.themeMode);
-  applyAppearance();
+function cycleAppearance(event) {
+  const nextMode = state.themeMode === 'dark' ? 'light' : 'dark';
+
+  const updateThemeDOM = () => {
+    state.themeMode = nextMode;
+    localStorage.setItem('horizon_appearance', state.themeMode);
+    applyAppearance();
+  };
+
+  // 支持 View Transitions API 时，从点击按钮中心向外波浪扩散扩散
+  if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    updateThemeDOM();
+    return;
+  }
+
+  let x = window.innerWidth - 45;
+  let y = 25;
+
+  if (event) {
+    if (event.clientX && event.clientY) {
+      x = event.clientX;
+      y = event.clientY;
+    } else if (event.currentTarget) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      x = rect.left + rect.width / 2;
+      y = rect.top + rect.height / 2;
+    }
+  }
+
+  const endRadius = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y)
+  );
+
+  const transition = document.startViewTransition(() => {
+    updateThemeDOM();
+  });
+
+  transition.ready.then(() => {
+    const clipPath = [
+      `circle(0px at ${x}px ${y}px)`,
+      `circle(${endRadius}px at ${x}px ${y}px)`
+    ];
+
+    document.documentElement.animate(
+      {
+        clipPath: clipPath
+      },
+      {
+        duration: 480,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        pseudoElement: '::view-transition-new(root)'
+      }
+    );
+  });
 }
 
 // ==================== 10. 路由与数据加载 ====================
@@ -1901,7 +1934,9 @@ function bindEvents() {
     location.hash = '#/';
   });
 
-  document.getElementById('btn-theme')?.addEventListener('click', cycleAppearance);
+  document.getElementById('btn-theme')?.addEventListener('click', (e) => {
+    cycleAppearance(e);
+  });
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
