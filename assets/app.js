@@ -1,6 +1,6 @@
 /**
  * Horizon Theme for CF-Server-Monitor
- * Modern Dashboard Style with Realtime WebSocket, SVG Charts, and Fleet Valuation
+ * Clean & Modern Minimalist Dashboard Style
  */
 
 // ==================== 1. 多语言字典与常量 ====================
@@ -82,7 +82,6 @@ const I18N = {
     back: '返回列表',
     admin: '管理后台',
     toggleTheme: '切换外观',
-    toggleView: '切换视图',
     unlimited: '无限制'
   },
   'en-US': {
@@ -162,7 +161,6 @@ const I18N = {
     back: 'Back to List',
     admin: 'Admin',
     toggleTheme: 'Toggle Theme',
-    toggleView: 'Toggle View',
     unlimited: 'Unlimited'
   }
 };
@@ -186,9 +184,7 @@ const state = {
   sysConfig: {},
   selectedGroup: 'ALL',
   searchQuery: '',
-  viewMode: localStorage.getItem('horizon_view_mode') || 'grid', // 'grid' | 'list'
   themeMode: localStorage.getItem('horizon_appearance') || 'system', // 'system' | 'light' | 'dark'
-  accentColor: localStorage.getItem('horizon_accent') || 'blue',
   currentRoute: { view: 'home', serverId: null },
   detailServer: null,
   detailHours: 24,
@@ -247,18 +243,8 @@ function fmtMB(mb, digits = 1) {
   return `${Math.round(v)} MB`;
 }
 
-function fmtPct(v, digits = 1) {
-  return `${safeNum(v, 0).toFixed(digits)}%`;
-}
-
 function pad2(n) {
   return String(n).padStart(2, '0');
-}
-
-function fmtClock(ts) {
-  if (!ts) return '--:--:--';
-  const d = new Date(ts);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
 function fmtDateTime(ts) {
@@ -292,7 +278,7 @@ function isServerOnline(server) {
   const last = safeNum(server.last_updated || server.timestamp);
   if (!last) return false;
   const interval = safeNum(server.report_interval, 60);
-  const threshold = Math.max(interval * 2500, 300000); // 至少 5 分钟
+  const threshold = Math.max(interval * 2500, 300000);
   return (Date.now() - last) <= threshold;
 }
 
@@ -598,7 +584,7 @@ function resolveCurrencyRate(currencySymbol) {
   if (sym.toUpperCase() === 'TWD' || sym === 'NT$') return r.TWD || 34.5;
   if (sym.toUpperCase() === 'JPY' || sym === '円') return r.JPY || 165.0;
   if (sym.toUpperCase() === 'GBP' || sym === '£') return r.GBP || 0.85;
-  return r.CNY || 7.8; // 默认以 CNY 结算
+  return r.CNY || 7.8;
 }
 
 function computeServerMonthlyCost(server) {
@@ -612,7 +598,7 @@ function computeServerMonthlyCost(server) {
   if (cycle === 'three-year' || cycle === '3year' || cycle === '1095') return p / 36;
   const days = parseInt(cycle, 10);
   if (!isNaN(days) && days > 0) return (p / days) * 30;
-  return p; // 默认月付
+  return p;
 }
 
 function computeRemainingWorth(server) {
@@ -647,7 +633,6 @@ function summarizeFleetWorth(servers) {
     if (p > 0) {
       const monthly = computeServerMonthlyCost(s);
       const curRate = resolveCurrencyRate(s.currency);
-      // 转为 EUR 再转为 CNY
       const eurVal = monthly / curRate;
       const cnyVal = eurVal * cnyRate;
       totalCny += cnyVal;
@@ -660,9 +645,9 @@ function summarizeFleetWorth(servers) {
 // ==================== 7. 原生 SVG 图表渲染引擎 ====================
 function buildSvgLineChart(series, options = {}) {
   const width = 960;
-  const height = 300;
+  const height = 280;
   const xLabels = Array.isArray(options.xLabels) ? options.xLabels : [];
-  const padding = { top: 20, right: 24, bottom: xLabels.length ? 44 : 26, left: 60 };
+  const padding = { top: 16, right: 20, bottom: xLabels.length ? 38 : 22, left: 54 };
   const innerW = width - padding.left - padding.right;
   const innerH = height - padding.top - padding.bottom;
 
@@ -670,7 +655,7 @@ function buildSvgLineChart(series, options = {}) {
   const totalPoints = Math.max(...validSeries.map(s => s.values.length), 0);
 
   if (!totalPoints || totalPoints < 2) {
-    return `<svg class="chart-svg" viewBox="0 0 ${width} ${height}"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="14">${escapeHtml(t('chartNoData'))}</text></svg>`;
+    return `<svg class="chart-svg" viewBox="0 0 ${width} ${height}"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="13">${escapeHtml(t('chartNoData'))}</text></svg>`;
   }
 
   const allVals = validSeries.flatMap(s => s.values).filter(v => typeof v === 'number' && Number.isFinite(v));
@@ -684,12 +669,12 @@ function buildSvgLineChart(series, options = {}) {
   const fmtY = options.fmtY || ((v) => String(Math.round(v)));
 
   // 网格线与 Y 轴刻度
-  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(ratio => {
+  const gridLines = [0, 0.33, 0.66, 1].map(ratio => {
     const yPos = (padding.top + innerH - innerH * ratio).toFixed(2);
     const val = minVal + (maxVal - minVal) * ratio;
     return `
       <line x1="${padding.left}" y1="${yPos}" x2="${width - padding.right}" y2="${yPos}"></line>
-      <text x="${padding.left - 10}" y="${(Number(yPos) + 4).toFixed(2)}" text-anchor="end">${escapeHtml(fmtY(val))}</text>
+      <text x="${padding.left - 8}" y="${(Number(yPos) + 3).toFixed(2)}" text-anchor="end">${escapeHtml(fmtY(val))}</text>
     `;
   }).join('');
 
@@ -698,13 +683,12 @@ function buildSvgLineChart(series, options = {}) {
     const xPos = getX(item.index).toFixed(2);
     return `
       <g class="axis-label">
-        <line x1="${xPos}" y1="${(padding.top + innerH).toFixed(2)}" x2="${xPos}" y2="${(padding.top + innerH + 5).toFixed(2)}"></line>
-        <text x="${xPos}" y="${height - 8}" text-anchor="${item.anchor || 'middle'}">${escapeHtml(item.label)}</text>
+        <line x1="${xPos}" y1="${(padding.top + innerH).toFixed(2)}" x2="${xPos}" y2="${(padding.top + innerH + 4).toFixed(2)}"></line>
+        <text x="${xPos}" y="${height - 6}" text-anchor="${item.anchor || 'middle'}">${escapeHtml(item.label)}</text>
       </g>
     `;
   }).join('');
 
-  // 面积与线条路径
   let areaSvg = '';
   let linesSvg = '';
   let pointsSvg = '';
@@ -721,10 +705,9 @@ function buildSvgLineChart(series, options = {}) {
 
     linesSvg += `<path class="${lineClass}" d="${pts}"></path>`;
 
-    // 交互点
     pointsSvg += s.values.map((v, i) => {
       const title = s.titles?.[i] || `${s.label}: ${fmtY(v)}`;
-      return `<circle class="chart-point" data-tone="${pointTone}" cx="${getX(i).toFixed(2)}" cy="${getY(v).toFixed(2)}" r="3" data-note="${escapeHtml(title)}"></circle>`;
+      return `<circle class="chart-point" data-tone="${pointTone}" cx="${getX(i).toFixed(2)}" cy="${getY(v).toFixed(2)}" r="2.5" data-note="${escapeHtml(title)}"></circle>`;
     }).join('');
   });
 
@@ -732,7 +715,7 @@ function buildSvgLineChart(series, options = {}) {
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.45"/>
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.3"/>
           <stop offset="100%" stop-color="var(--primary)" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
@@ -808,7 +791,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏 - 像素级高度与对齐优化
+// 8.2 分类标签栏 - 极简现代
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -839,16 +822,14 @@ function renderGroupBar() {
   container.innerHTML = html;
 }
 
-// 8.3 节点列表与卡片渲染
+// 8.3 节点列表与卡片渲染 - 标准干净网格
 function filteredServers() {
   let list = state.servers.slice();
 
-  // 分组筛选
   if (state.selectedGroup !== 'ALL') {
     list = list.filter(s => (s.server_group || '').trim() === state.selectedGroup);
   }
 
-  // 关键词搜索
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase().trim();
     list = list.filter(s => {
@@ -862,7 +843,6 @@ function filteredServers() {
     });
   }
 
-  // 排序：在线节点置顶，然后按 sort_order 升序，最后按名称字母排序
   list.sort((a, b) => {
     const onlineA = isServerOnline(a) ? 1 : 0;
     const onlineB = isServerOnline(b) ? 1 : 0;
@@ -881,7 +861,7 @@ function renderServersGrid() {
   const emptyState = document.getElementById('empty-state');
   if (!grid) return;
 
-  grid.className = `card-grid ${state.viewMode === 'list' ? 'is-list' : ''}`;
+  grid.className = 'card-grid';
   const list = filteredServers();
 
   if (list.length === 0) {
@@ -901,7 +881,7 @@ function renderServerCard(server) {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
-  // 指标
+  // 指标计算
   const cpuPct = safeNum(server.cpu, 0);
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
@@ -973,7 +953,6 @@ function renderServerCard(server) {
     priceHtml = `<span class="tag green">${t('free')}</span>`;
   }
 
-  // 剩余价值
   const remWorth = computeRemainingWorth(server);
   let remHtml = '';
   if (remWorth) {
@@ -987,108 +966,101 @@ function renderServerCard(server) {
     }
   }
 
-  // OS 图标与名称
   const osName = server.os || 'Linux';
   const osIconUrl = resolveOsIcon(osName);
 
   return `
-    <article class="server-card ${online ? 'is-online' : 'is-offline'}" data-id="${escapeHtml(id)}">
+    <article class="server-card" data-id="${escapeHtml(id)}">
       <div class="server-card__button" role="button" tabindex="0" onclick="location.hash = '#/server/${encodeURIComponent(id)}'">
-        <div class="server-card-list-inner">
-          <!-- 头部信息 -->
-          <div class="card-header">
-            <div class="name-os">
-              <div class="srv-name">
-                <span class="srv-flag">
-                  <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
-                </span>
-                <span class="srv-name-text">${escapeHtml(name)}</span>
-              </div>
-              <div class="srv-os">
-                <img src="${osIconUrl}" class="os-icon" alt="${escapeHtml(osName)}" onerror="this.style.display='none'">
-                <span>${escapeHtml(osName)}</span>
-                <span>·</span>
-                <span class="ip-tag ${server.ip_v4 === '1' ? 'ip-tag--active' : ''}">v4</span>
-                <span class="ip-tag ${server.ip_v6 === '1' ? 'ip-tag--active' : ''}">v6</span>
-                <span>·</span>
-                <span>${uptimeStr}</span>
-              </div>
+        <!-- 头部信息 -->
+        <div class="card-header">
+          <div class="name-os">
+            <div class="srv-name">
+              <span class="srv-flag">
+                <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
+              </span>
+              <span class="srv-name-text">${escapeHtml(name)}</span>
             </div>
-            <span class="status-badge ${online ? 'status-online' : 'status-offline'}">
-              ${online ? t('online') : t('offline')}
+            <div class="srv-os">
+              <img src="${osIconUrl}" class="os-icon" alt="${escapeHtml(osName)}" onerror="this.style.display='none'">
+              <span>${escapeHtml(osName)}</span>
+              <span>·</span>
+              <span class="ip-tag ${server.ip_v4 === '1' ? 'ip-tag--active' : ''}">v4</span>
+              <span class="ip-tag ${server.ip_v6 === '1' ? 'ip-tag--active' : ''}">v6</span>
+              <span>·</span>
+              <span>${uptimeStr}</span>
+            </div>
+          </div>
+          <span class="status-badge ${online ? 'status-online' : 'status-offline'}">
+            ${online ? t('online') : t('offline')}
+          </span>
+        </div>
+
+        <!-- 3 个紧凑资源占用圆环 -->
+        <div class="dials">
+          <div class="dial-group">
+            <div class="circle-wrap" style="--pct: ${cpuPct}%">
+              <div class="circle-inner">${cpuPct.toFixed(0)}%</div>
+            </div>
+            <div class="dial-label">CPU</div>
+            <div class="dial-val">${server.cpu_cores ? `${server.cpu_cores}核` : '--'}</div>
+          </div>
+
+          <div class="dial-group">
+            <div class="circle-wrap" style="--pct: ${ramPct}%">
+              <div class="circle-inner">${ramPct.toFixed(0)}%</div>
+            </div>
+            <div class="dial-label">RAM</div>
+            <div class="dial-val">${fmtMB(server.ram_total)}</div>
+          </div>
+
+          <div class="dial-group">
+            <div class="circle-wrap" style="--pct: ${diskPct}%">
+              <div class="circle-inner">${diskPct.toFixed(0)}%</div>
+            </div>
+            <div class="dial-label">Disk</div>
+            <div class="dial-val">${fmtMB(server.disk_total)}</div>
+          </div>
+        </div>
+
+        <!-- 详细网络与延迟指标 -->
+        <div class="list-data">
+          <div class="list-row">
+            <span class="list-row__label">
+              <span class="metric-label-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
+              ${t('network')}
             </span>
-          </div>
-
-          <!-- 3 个资源占用圆环 -->
-          <div class="dials">
-            <div class="dial-group">
-              <div class="circle-wrap" style="--pct: ${cpuPct}%">
-                <div class="circle-inner">${cpuPct.toFixed(0)}%</div>
-              </div>
-              <div class="dial-label">CPU</div>
-              <div class="dial-val">${server.cpu_cores ? `${server.cpu_cores}核` : '--'}</div>
-            </div>
-
-            <div class="dial-group">
-              <div class="circle-wrap" style="--pct: ${ramPct}%">
-                <div class="circle-inner">${ramPct.toFixed(0)}%</div>
-              </div>
-              <div class="dial-label">RAM</div>
-              <div class="dial-val">${fmtMB(server.ram_total)}</div>
-            </div>
-
-            <div class="dial-group">
-              <div class="circle-wrap" style="--pct: ${diskPct}%">
-                <div class="circle-inner">${diskPct.toFixed(0)}%</div>
-              </div>
-              <div class="dial-label">Disk</div>
-              <div class="dial-val">${fmtMB(server.disk_total)}</div>
+            <div class="list-row__value">
+              <span class="plain-metric plain-metric--up">
+                <svg viewBox="0 0 24 24"><path d="m12 19V5m0 0-4 4m4-4 4 4"/></svg>${fmtSpeed(server.net_out_speed)}
+              </span>
+              <span class="plain-metric plain-metric--down">
+                <svg viewBox="0 0 24 24"><path d="m12 5v14m0 0-4-4m4 4 4-4"/></svg>${fmtSpeed(server.net_in_speed)}
+              </span>
             </div>
           </div>
 
-          <!-- 详细网络与延迟指标 -->
-          <div class="list-data">
-            <!-- 实时网络速率 -->
+          ${pingsHtml ? `
             <div class="list-row">
               <span class="list-row__label">
-                <span class="metric-label-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
-                ${t('network')}
+                <span class="metric-label-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                ${t('latency')}
               </span>
-              <div class="list-row__value">
-                <span class="plain-metric plain-metric--up">
-                  <svg viewBox="0 0 24 24"><path d="m12 19V5m0 0-4 4m4-4 4 4"/></svg>${fmtSpeed(server.net_out_speed)}
-                </span>
-                <span class="plain-metric plain-metric--down">
-                  <svg viewBox="0 0 24 24"><path d="m12 5v14m0 0-4-4m4 4 4-4"/></svg>${fmtSpeed(server.net_in_speed)}
-                </span>
+              <div class="list-row__value srv-latency">
+                ${pingsHtml}
               </div>
-            </div>
-
-            <!-- 延迟检测 -->
-            ${pingsHtml ? `
-              <div class="list-row">
-                <span class="list-row__label">
-                  <span class="metric-label-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-                  ${t('latency')}
-                </span>
-                <div class="list-row__value srv-latency">
-                  ${pingsHtml}
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- 本月流量使用 -->
-            ${trafficHtml}
-          </div>
-
-          <!-- 底部标签与剩余价值 -->
-          ${(priceHtml || remHtml) ? `
-            <div class="card-footer">
-              ${priceHtml}
-              ${remHtml}
             </div>
           ` : ''}
+
+          ${trafficHtml}
         </div>
+
+        ${(priceHtml || remHtml) ? `
+          <div class="card-footer">
+            ${priceHtml}
+            ${remHtml}
+          </div>
+        ` : ''}
       </div>
     </article>
   `;
@@ -1115,7 +1087,6 @@ async function renderDetailPage() {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
-  // 1. 顶部卡片
   const headerHtml = `
     <div class="detail-header-card__left">
       <button class="back-btn" onclick="location.hash='#/'"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>${t('back')}</button>
@@ -1129,7 +1100,6 @@ async function renderDetailPage() {
   `;
   document.getElementById('detail-header').innerHTML = headerHtml;
 
-  // 2. 硬件规格与运行参数
   const specsHtml = `
     <div class="spec-box"><span class="spec-label">${t('specCpu')}</span><span class="spec-val">${escapeHtml(server.cpu_info || '--')}</span></div>
     <div class="spec-box"><span class="spec-label">${t('specCoresArch')}</span><span class="spec-val">${server.cpu_cores ? `${server.cpu_cores} Cores` : '--'} · ${escapeHtml(server.arch || 'x86_64')}</span></div>
@@ -1146,7 +1116,6 @@ async function renderDetailPage() {
   `;
   document.getElementById('detail-specs').innerHTML = specsHtml;
 
-  // 3. 详情图表类型切换标签
   const tabs = [
     { key: 'load', label: t('tabLoad') },
     { key: 'network', label: t('tabNetwork') },
@@ -1157,7 +1126,6 @@ async function renderDetailPage() {
     <button class="tab ${state.detailTab === tItem.key ? 'is-active' : ''}" data-tab="${tItem.key}" type="button">${tItem.label}</button>
   `).join('');
 
-  // 4. 历史时间跨度标签
   const hoursList = [
     { h: 1, label: t('h1') },
     { h: 6, label: t('h6') },
@@ -1171,7 +1139,6 @@ async function renderDetailPage() {
     <button class="tab ${state.detailHours === hItem.h ? 'is-active' : ''}" data-hours="${hItem.h}" type="button">${hItem.label}</button>
   `).join('');
 
-  // 5. 渲染当前选中的图表
   renderActiveDetailChart(server);
 }
 
@@ -1183,13 +1150,12 @@ function renderActiveDetailChart(server) {
   if (!history.length) {
     chartContainer.innerHTML = `
       <div class="chart-card">
-        <svg class="chart-svg" viewBox="0 0 960 300"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="14">${t('chartNoData')}</text></svg>
+        <svg class="chart-svg" viewBox="0 0 960 280"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="13">${t('chartNoData')}</text></svg>
       </div>
     `;
     return;
   }
 
-  // 生成 X 轴时间标签（5 个均匀采样点）
   const xLabels = [];
   const step = Math.max(1, Math.floor((history.length - 1) / 4));
   for (let i = 0; i < history.length; i += step) {
@@ -1202,7 +1168,6 @@ function renderActiveDetailChart(server) {
   let chartCardHtml = '';
 
   if (state.detailTab === 'load') {
-    // 负载图表：CPU%, RAM%
     const cpuSeries = {
       key: 'cpu',
       label: 'CPU',
@@ -1243,7 +1208,6 @@ function renderActiveDetailChart(server) {
       </article>
     `;
   } else if (state.detailTab === 'network') {
-    // 网络图表：Inbound & Outbound Speeds
     const inSeries = {
       key: 'net_in',
       label: t('speedIn'),
@@ -1283,7 +1247,6 @@ function renderActiveDetailChart(server) {
       </article>
     `;
   } else if (state.detailTab === 'ping') {
-    // 延迟图表：电信、联通、移动、BGP
     const ctSeries = { key: 'ct', label: '电信', values: history.map(h => safeNum(h.ping_ct, null)) };
     const cuSeries = { key: 'cu', label: '联通', values: history.map(h => safeNum(h.ping_cu, null)) };
     const cmSeries = { key: 'cm', label: '移动', values: history.map(h => safeNum(h.ping_cm, null)) };
@@ -1313,7 +1276,6 @@ function renderActiveDetailChart(server) {
       </article>
     `;
   } else if (state.detailTab === 'disk') {
-    // 磁盘 IO 图表
     const readSeries = { key: 'read_bps', label: `${t('read')} (B/s)`, values: history.map(h => safeNum(h.disk?.read_bps || h.disk_read_bps, 0)) };
     const writeSeries = { key: 'write_bps', label: `${t('write')} (B/s)`, values: history.map(h => safeNum(h.disk?.write_bps || h.disk_write_bps, 0)) };
 
@@ -1368,7 +1330,7 @@ function updateConnectionState(st) {
   }
 }
 
-// ==================== 9. 外观主题与视图切换 ====================
+// ==================== 9. 外观主题切换 ====================
 function applyAppearance() {
   const root = document.documentElement;
   let effective = state.themeMode;
@@ -1378,11 +1340,10 @@ function applyAppearance() {
   }
 
   root.dataset.appearance = effective;
-  root.dataset.accent = state.accentColor;
 
   const themeMeta = document.getElementById('theme-color-meta');
   if (themeMeta) {
-    themeMeta.content = effective === 'dark' ? '#07111f' : '#f0f4f8';
+    themeMeta.content = effective === 'dark' ? '#0b1120' : '#f8fafc';
   }
 
   const btnTheme = document.getElementById('btn-theme');
@@ -1393,15 +1354,6 @@ function applyAppearance() {
       btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>`;
     } else {
       btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>`;
-    }
-  }
-
-  const btnView = document.getElementById('btn-view');
-  if (btnView) {
-    if (state.viewMode === 'list') {
-      btnView.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>`;
-    } else {
-      btnView.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>`;
     }
   }
 }
@@ -1415,14 +1367,7 @@ function cycleAppearance() {
   applyAppearance();
 }
 
-function cycleViewMode() {
-  state.viewMode = state.viewMode === 'grid' ? 'list' : 'grid';
-  localStorage.setItem('horizon_view_mode', state.viewMode);
-  applyAppearance();
-  renderServersGrid();
-}
-
-// ==================== 10. 路由、数据加载与演示数据 Fallback ====================
+// ==================== 10. 路由与数据加载 ====================
 let metricSocket = null;
 let pollingTimer = null;
 let demoTickTimer = null;
@@ -1461,7 +1406,6 @@ async function handleRouteChange() {
   }
 }
 
-// 生成完整的本地演示/预览数据
 function generateDemoData() {
   const now = Date.now();
   const demoServers = [
@@ -1723,7 +1667,7 @@ function generateDemoData() {
       site_title: 'Horizon Monitor · 本地预览',
       version: '2.8.6',
       is_public: true,
-      theme_options: { accent_color: 'Blue', default_appearance: 'Dark' }
+      theme_options: { default_appearance: 'Dark' }
     },
     servers: demoServers,
     stats: {
@@ -1739,7 +1683,7 @@ function generateDemoData() {
 }
 
 function generateMockHistory(server, hours = 24) {
-  const pointsCount = 60;
+  const pointsCount = 50;
   const now = Date.now();
   const intervalMs = (hours * 3600 * 1000) / pointsCount;
   const history = [];
@@ -1805,7 +1749,6 @@ async function loadServerDetailData(serverId) {
 
 async function loadInitialData() {
   try {
-    // 1. 获取站点配置
     state.config = await request('/api/config');
     if (state.config.site_title) {
       document.title = state.config.site_title;
@@ -1815,16 +1758,12 @@ async function loadInitialData() {
 
     if (state.config.theme_options) {
       const opts = state.config.theme_options;
-      if (opts.accent_color && !localStorage.getItem('horizon_accent')) {
-        state.accentColor = opts.accent_color.toLowerCase();
-      }
       if (opts.default_appearance && !localStorage.getItem('horizon_appearance')) {
         state.themeMode = opts.default_appearance.toLowerCase();
       }
     }
     applyAppearance();
 
-    // 2. 获取节点列表与聚合统计
     const serversData = await request('/api/servers');
     state.servers = serversData.servers || [];
     state.serversMap = new Map(state.servers.map(s => [s.id, s]));
@@ -1832,7 +1771,6 @@ async function loadInitialData() {
     state.regionStats = serversData.regionStats || {};
     state.sysConfig = serversData.sysConfig || {};
 
-    // 3. 异步获取汇率
     loadExchangeRates().then(() => {
       renderGlobalStats();
       renderServersGrid();
@@ -1860,7 +1798,6 @@ async function loadInitialData() {
     handleRouteChange();
     updateConnectionState('open');
 
-    // 演示模式下模拟秒级心跳与微小数据波动
     startDemoTick();
   }
 }
@@ -1952,16 +1889,12 @@ function startPollingWatchdog() {
 
 // ==================== 11. 事件绑定与初始化 ====================
 function bindEvents() {
-  // 品牌链接点击返回首页
   document.getElementById('brand-link')?.addEventListener('click', () => {
     location.hash = '#/';
   });
 
-  // 主题与视图切换按钮
   document.getElementById('btn-theme')?.addEventListener('click', cycleAppearance);
-  document.getElementById('btn-view')?.addEventListener('click', cycleViewMode);
 
-  // 搜索输入框
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
@@ -1970,7 +1903,6 @@ function bindEvents() {
     });
   }
 
-  // 分类标签点击
   document.getElementById('group-links')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.group-link');
     if (!btn) return;
@@ -1979,7 +1911,6 @@ function bindEvents() {
     renderServersGrid();
   });
 
-  // 详情页标签切换（Tab / Hours / Legend）
   document.getElementById('detail-section-tabs')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.tab');
     if (!btn || !btn.dataset.tab) return;
@@ -2014,7 +1945,6 @@ function bindEvents() {
     renderDetailPage();
   });
 
-  // 悬浮提示 Tooltip
   const tooltipRoot = document.getElementById('tooltip-root');
   let activeTooltip = null;
 
@@ -2035,7 +1965,7 @@ function bindEvents() {
     activeTooltip.textContent = note;
 
     const rect = target.getBoundingClientRect();
-    const top = rect.top - 36;
+    const top = rect.top - 32;
     const left = rect.left + rect.width / 2;
     activeTooltip.style.top = `${Math.max(10, top)}px`;
     activeTooltip.style.left = `${Math.max(10, left)}px`;
@@ -2050,16 +1980,13 @@ function bindEvents() {
     }
   });
 
-  // 监听浏览器 URL Hash 变化
   window.addEventListener('hashchange', handleRouteChange);
 
-  // 监听系统颜色偏好变化
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
     if (state.themeMode === 'system') applyAppearance();
   });
 }
 
-// 启动入口
 document.addEventListener('DOMContentLoaded', () => {
   applyAppearance();
   bindEvents();
