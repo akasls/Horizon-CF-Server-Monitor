@@ -37,7 +37,7 @@ const I18N = {
     disk: 'Disk',
     swap: 'Swap',
     network: '网络',
-    traffic: '总流量',
+    traffic: '流量',
     monthlyTraffic: '本月流量',
     latency: '延迟',
     loss: '丢包',
@@ -864,7 +864,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (排布宽松有呼吸感)
+// 渲染单个探针组件 (带图标，清晰结构化延迟与流量展示)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -886,11 +886,44 @@ function renderServerCard(server) {
   }
 
   // 延迟排版
-  const pingCt = server.ping_ct != null ? `${Math.round(server.ping_ct)}ms` : '--';
-  const pingCu = server.ping_cu != null ? `${Math.round(server.ping_cu)}ms` : '--';
-  const pingCm = server.ping_cm != null ? `${Math.round(server.ping_cm)}ms` : '--';
-  const pingBd = server.ping_bd != null ? `${Math.round(server.ping_bd)}ms` : '--';
-  const pingsText = `电信 ${pingCt}  联通 ${pingCu}  移动 ${pingCm}  BGP ${pingBd}`;
+  const fmtPing = (val) => (val != null ? `${Math.round(val)}ms` : '--');
+  const pingTone = (val) => {
+    if (val == null) return '';
+    const num = Math.round(Number(val));
+    return num < 80 ? 'ping-v--good' : num < 180 ? 'ping-v--med' : 'ping-v--bad';
+  };
+
+  const pingMatrixHtml = `
+    <div class="ping-matrix">
+      <span class="ping-col"><span class="ping-k">电信</span><span class="ping-v ${pingTone(server.ping_ct)}">${fmtPing(server.ping_ct)}</span></span>
+      <span class="ping-col"><span class="ping-k">联通</span><span class="ping-v ${pingTone(server.ping_cu)}">${fmtPing(server.ping_cu)}</span></span>
+      <span class="ping-col"><span class="ping-k">移动</span><span class="ping-v ${pingTone(server.ping_cm)}">${fmtPing(server.ping_cm)}</span></span>
+      <span class="ping-col"><span class="ping-k">BGP</span><span class="ping-v ${pingTone(server.ping_bd)}">${fmtPing(server.ping_bd)}</span></span>
+    </div>
+  `;
+
+  // 流量数据显示
+  const trafficLimit = server.traffic_limit;
+  let trafficValText = '';
+  let trafficTrackHtml = '';
+
+  if (trafficLimit && trafficLimit !== '0') {
+    let limitBytes = 0;
+    const tStr = String(trafficLimit).toUpperCase();
+    if (tStr.endsWith('TB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024 * 1024;
+    else if (tStr.endsWith('GB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024;
+    else if (tStr.endsWith('MB')) limitBytes = parseFloat(tStr) * 1024 * 1024;
+    else limitBytes = safeNum(trafficLimit, 0);
+
+    const monthlyUsed = safeNum(server.net_rx_monthly) + safeNum(server.net_tx_monthly);
+    const tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
+
+    trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)} · ${tfPct.toFixed(0)}%`;
+    trafficTrackHtml = `<div class="traffic-track-mini"><span style="width: ${tfPct}%"></span></div>`;
+  } else {
+    const totalBytes = safeNum(server.net_rx) + safeNum(server.net_tx);
+    trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
+  }
 
   // 价值与剩余价值计算
   const priceVal = safeNum(server.price, 0);
@@ -906,31 +939,6 @@ function renderServerCard(server) {
     valuationText = '免费 · 永久';
   } else {
     valuationText = '--';
-  }
-
-  // 流量进度条
-  const trafficLimit = server.traffic_limit;
-  let trafficHtml = '';
-  if (trafficLimit && trafficLimit !== '0') {
-    let limitBytes = 0;
-    const tStr = String(trafficLimit).toUpperCase();
-    if (tStr.endsWith('TB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024 * 1024;
-    else if (tStr.endsWith('GB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024;
-    else if (tStr.endsWith('MB')) limitBytes = parseFloat(tStr) * 1024 * 1024;
-    else limitBytes = safeNum(trafficLimit, 0);
-
-    const monthlyUsed = safeNum(server.net_rx_monthly) + safeNum(server.net_tx_monthly);
-    const tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
-
-    trafficHtml = `
-      <div class="usage-bar">
-        <div class="usage-bar__text">
-          <span>本月 ${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)}</span>
-          <span>${tfPct.toFixed(0)}%</span>
-        </div>
-        <div class="usage-bar__track"><span style="width: ${tfPct}%"></span></div>
-      </div>
-    `;
   }
 
   return `
@@ -979,21 +987,35 @@ function renderServerCard(server) {
         <!-- 行 3: 分割线 -->
         <div class="card-divider"></div>
 
-        <!-- 行 4: 网络 ↑XXX/s ↓XXX/s -->
+        <!-- 行 4: 网络 带图标 -->
         <div class="card-info-row">
-          <span class="info-label">网络</span>
+          <span class="info-label">
+            <svg class="row-icon" viewBox="0 0 24 24"><path d="M7 10v12M7 10l-3 3M7 10l3 3M17 14V2m0 0 3 3m-3-3-3 3"/></svg>
+            ${t('network')}
+          </span>
           <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
         </div>
 
-        <!-- 行 5: 延迟 电信 8ms 联通 12ms 移动 10ms BGP 15ms -->
+        <!-- 行 5: 延迟 带图标 与 结构化排版 -->
         <div class="card-info-row">
-          <span class="info-label">延迟</span>
-          <span class="info-val ping-val-list">${pingsText}</span>
+          <span class="info-label">
+            <svg class="row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            ${t('latency')}
+          </span>
+          <div class="info-val">${pingMatrixHtml}</div>
         </div>
 
-        ${trafficHtml}
+        <!-- 行 6: 流量 带图标 -->
+        <div class="card-info-row">
+          <span class="info-label">
+            <svg class="row-icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
+            ${t('traffic')}
+          </span>
+          <span class="info-val">${trafficValText}</span>
+        </div>
+        ${trafficTrackHtml}
 
-        <!-- 行 6: 在线天数 18天 与 总价值·剩余价值·剩余天数 -->
+        <!-- 行 7: 在线天数 与 价值 -->
         <div class="card-info-row card-bottom-row">
           <span class="info-label">${uptimeDaysStr}</span>
           <span class="info-val valuation-val">${valuationText}</span>
@@ -1130,7 +1152,7 @@ function renderActiveDetailChart(server) {
     xLabels.push({ index: i, label });
   }
 
-  // 顶部导航文字链接：监控详情：系统负载 | 网络速率 | 延迟与丢包 | 磁盘IO
+  // 顶部导航文字链接 (纯净分类，去除了'监控详情：')
   const navTabs = [
     { key: 'load', label: t('tabLoad') },
     { key: 'network', label: t('tabNetwork') },
@@ -1264,7 +1286,6 @@ function renderActiveDetailChart(server) {
     <article class="chart-card">
       <div class="chart-card-header">
         <div class="chart-nav-links" id="chart-nav-links">
-          <span class="chart-nav-title">监控详情：</span>
           ${navTabsHtml}
         </div>
         <div class="chart-header-right">

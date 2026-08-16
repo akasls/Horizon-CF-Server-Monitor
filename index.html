@@ -10,6 +10,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- 纯静态/跨域部署时可通过 meta[name=apiBase] 配置 Worker 地址，多个地址以英文逗号分隔 -->
   <!-- <meta name="apiBase" content="https://your-cf-server-monitor.workers.dev"> -->
   <link rel="stylesheet" href="assets/app.css">
@@ -62,7 +66,7 @@
         <!-- 空数据提示 -->
         <div id="empty-state" class="empty-state hidden">
           <div class="empty-state__icon">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
           </div>
           <div class="empty-state__title" id="empty-title">没有匹配的服务器</div>
           <div class="empty-state__description" id="empty-desc">可以尝试切换分组或修改搜索关键词。</div>
