@@ -45,20 +45,19 @@ const I18N = {
     loss: '丢包',
     uptime: '运行时间',
     lastReport: '最后上报',
+    panelSystem: '系统与硬件',
+    panelMemory: '内存与存储',
+    panelNetwork: '网络与连接',
     specCpu: 'CPU 型号',
     specCoresArch: '核心与架构',
-    specOsKernel: '操作系统与内核',
-    specVirt: '虚拟化',
-    specGpu: 'GPU 显卡',
-    specNetSpeed: '当前网络速率',
-    specTrafficMonth: '本月流量统计',
-    specTrafficTotal: '累计总流量',
-    specRam: '内存 (RAM)',
-    specSwap: '交换空间 (Swap)',
-    specDisk: '磁盘空间',
-    specProcessConn: '进程与网络连接',
+    specOsKernel: '操作系统',
     specUptime: '运行时间',
-    specLastUpdated: '最后上报时间',
+    specLastUpdated: '最后上报',
+    specNetSpeed: '当前网络速率',
+    specTrafficMonth: '本月流量',
+    specTrafficTotal: '累计总流量',
+    specConns: '网络连接',
+    specProcesses: '活跃进程',
     tabLoad: '系统负载',
     tabNetwork: '网络速率',
     tabPing: '延迟与丢包',
@@ -81,7 +80,7 @@ const I18N = {
     speedOut: '上行速率',
     back: '返回列表',
     admin: '管理后台',
-    toggleTheme: '切换外观',
+    toggleTheme: '切换日间/夜间模式',
     unlimited: '无限制'
   },
   'en-US': {
@@ -124,20 +123,19 @@ const I18N = {
     loss: 'Loss',
     uptime: 'Uptime',
     lastReport: 'Last Report',
+    panelSystem: 'System & Specs',
+    panelMemory: 'Memory & Storage',
+    panelNetwork: 'Network & Traffic',
     specCpu: 'CPU Model',
     specCoresArch: 'Cores & Arch',
-    specOsKernel: 'OS & Kernel',
-    specVirt: 'Virtualization',
-    specGpu: 'GPU Graphics',
+    specOsKernel: 'Operating System',
+    specUptime: 'System Uptime',
+    specLastUpdated: 'Last Updated',
     specNetSpeed: 'Network Speed',
     specTrafficMonth: 'Monthly Traffic',
     specTrafficTotal: 'Cumulative Traffic',
-    specRam: 'Memory (RAM)',
-    specSwap: 'Swap Space',
-    specDisk: 'Disk Storage',
-    specProcessConn: 'Processes & Conns',
-    specUptime: 'System Uptime',
-    specLastUpdated: 'Last Updated',
+    specConns: 'Connections',
+    specProcesses: 'Processes',
     tabLoad: 'System Load',
     tabNetwork: 'Network Speed',
     tabPing: 'Latency & Loss',
@@ -160,7 +158,7 @@ const I18N = {
     speedOut: 'Outbound',
     back: 'Back to List',
     admin: 'Admin',
-    toggleTheme: 'Toggle Theme',
+    toggleTheme: 'Toggle Day/Night Mode',
     unlimited: 'Unlimited'
   }
 };
@@ -184,7 +182,7 @@ const state = {
   sysConfig: {},
   selectedGroup: 'ALL',
   searchQuery: '',
-  themeMode: localStorage.getItem('horizon_appearance') || 'system', // 'system' | 'light' | 'dark'
+  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark', // 仅日间 / 夜间二选一
   currentRoute: { view: 'home', serverId: null },
   detailServer: null,
   detailHours: 24,
@@ -420,7 +418,7 @@ async function ensureTurnstile() {
       try {
         window.turnstile.render(holder, {
           sitekey: siteKey,
-          theme: document.documentElement.dataset.appearance === 'dark' ? 'dark' : 'light',
+          theme: state.themeMode === 'dark' ? 'dark' : 'light',
           callback: async (token) => {
             try {
               const res = await fetch(`${API_BASE}/api/config`, {
@@ -668,7 +666,6 @@ function buildSvgLineChart(series, options = {}) {
 
   const fmtY = options.fmtY || ((v) => String(Math.round(v)));
 
-  // 网格线与 Y 轴刻度
   const gridLines = [0, 0.33, 0.66, 1].map(ratio => {
     const yPos = (padding.top + innerH - innerH * ratio).toFixed(2);
     const val = minVal + (maxVal - minVal) * ratio;
@@ -678,7 +675,6 @@ function buildSvgLineChart(series, options = {}) {
     `;
   }).join('');
 
-  // X 轴刻度
   const axisLabels = xLabels.map(item => {
     const xPos = getX(item.index).toFixed(2);
     return `
@@ -791,7 +787,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏 - 极简现代
+// 8.2 分类标签栏
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -822,7 +818,7 @@ function renderGroupBar() {
   container.innerHTML = html;
 }
 
-// 8.3 节点列表与卡片渲染 - 标准干净网格
+// 8.3 节点列表与卡片渲染
 function filteredServers() {
   let list = state.servers.slice();
 
@@ -881,15 +877,12 @@ function renderServerCard(server) {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
-  // 指标计算
   const cpuPct = safeNum(server.cpu, 0);
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
 
-  // 运行时间
   const uptimeStr = server.boot_time ? fmtDuration((Date.now() - safeNum(server.boot_time)) / 1000) : (online ? '在线' : '离线');
 
-  // 延迟数据
   const pingCt = server.ping_ct;
   const pingCu = server.ping_cu;
   const pingCm = server.ping_cm;
@@ -910,7 +903,6 @@ function renderServerCard(server) {
     renderPingChip('BGP', pingBd, server.loss_bd)
   ].filter(Boolean).join('');
 
-  // 流量使用进度
   const trafficLimit = server.traffic_limit;
   let trafficHtml = '';
   if (trafficLimit && trafficLimit !== '0') {
@@ -943,7 +935,6 @@ function renderServerCard(server) {
     `;
   }
 
-  // 价格与剩余价值
   const priceVal = safeNum(server.price, 0);
   let priceHtml = '';
   if (priceVal > 0) {
@@ -1066,7 +1057,7 @@ function renderServerCard(server) {
   `;
 }
 
-// 8.4 详情页渲染与图表
+// 8.4 详情页渲染 - 整合为三大聚合面板，拒绝散落小方块
 async function renderDetailPage() {
   const container = document.getElementById('detail-view');
   const serverId = state.currentRoute.serverId;
@@ -1087,6 +1078,7 @@ async function renderDetailPage() {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
+  // 顶部卡片
   const headerHtml = `
     <div class="detail-header-card__left">
       <button class="back-btn" onclick="location.hash='#/'"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>${t('back')}</button>
@@ -1100,19 +1092,75 @@ async function renderDetailPage() {
   `;
   document.getElementById('detail-header').innerHTML = headerHtml;
 
+  // 内存与存储百分比
+  const ramPct = calcPct(server.ram_used, server.ram_total);
+  const swapPct = calcPct(server.swap_used, server.swap_total);
+  const diskPct = calcPct(server.disk_used, server.disk_total);
+
+  // 3 个整合分组面板
   const specsHtml = `
-    <div class="spec-box"><span class="spec-label">${t('specCpu')}</span><span class="spec-val">${escapeHtml(server.cpu_info || '--')}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specCoresArch')}</span><span class="spec-val">${server.cpu_cores ? `${server.cpu_cores} Cores` : '--'} · ${escapeHtml(server.arch || 'x86_64')}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specOsKernel')}</span><span class="spec-val">${escapeHtml(server.os || 'Linux')}</span><span class="spec-sub">${escapeHtml(server.kernel_version || '')}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specNetSpeed')}</span><span class="spec-val">↓ ${fmtSpeed(server.net_in_speed)} · ↑ ${fmtSpeed(server.net_out_speed)}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specTrafficMonth')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx_monthly)} · ↑ ${fmtBytes(server.net_tx_monthly)}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specTrafficTotal')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx)} · ↑ ${fmtBytes(server.net_tx)}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specRam')}</span><span class="spec-val">${fmtMB(server.ram_used)} / ${fmtMB(server.ram_total)}</span><span class="spec-sub">${calcPct(server.ram_used, server.ram_total).toFixed(1)}%</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specSwap')}</span><span class="spec-val">${fmtMB(server.swap_used)} / ${fmtMB(server.swap_total)}</span><span class="spec-sub">${calcPct(server.swap_used, server.swap_total).toFixed(1)}%</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specDisk')}</span><span class="spec-val">${fmtMB(server.disk_used)} / ${fmtMB(server.disk_total)}</span><span class="spec-sub">${calcPct(server.disk_used, server.disk_total).toFixed(1)}%</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specProcessConn')}</span><span class="spec-val">${server.processes || '--'} 进程</span><span class="spec-sub">TCP: ${server.tcp_conn || 0} · UDP: ${server.udp_conn || 0}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specUptime')}</span><span class="spec-val">${server.boot_time ? fmtDuration((Date.now() - safeNum(server.boot_time)) / 1000) : '--'}</span></div>
-    <div class="spec-box"><span class="spec-label">${t('specLastUpdated')}</span><span class="spec-val">${server.last_updated ? fmtDateTime(server.last_updated) : '--'}</span></div>
+    <div class="detail-panels-grid">
+      <!-- 面板 1: 系统与硬件 -->
+      <div class="detail-panel">
+        <div class="detail-panel__title">
+          <svg viewBox="0 0 24 24" class="icon-svg"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+          <span>${t('panelSystem')}</span>
+        </div>
+        <div class="detail-panel__content spec-list">
+          <div class="spec-item"><span class="spec-label">${t('specCpu')}</span><span class="spec-val">${escapeHtml(server.cpu_info || '--')}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specCoresArch')}</span><span class="spec-val">${server.cpu_cores ? `${server.cpu_cores} 核` : '--'} · ${escapeHtml(server.arch || 'x86_64')}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specOsKernel')}</span><span class="spec-val">${escapeHtml(server.os || 'Linux')}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specUptime')}</span><span class="spec-val">${server.boot_time ? fmtDuration((Date.now() - safeNum(server.boot_time)) / 1000) : '--'}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specLastUpdated')}</span><span class="spec-val">${server.last_updated ? fmtDateTime(server.last_updated) : '--'}</span></div>
+        </div>
+      </div>
+
+      <!-- 面板 2: 内存与存储使用 -->
+      <div class="detail-panel">
+        <div class="detail-panel__title">
+          <svg viewBox="0 0 24 24" class="icon-svg"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M6 18h12"/></svg>
+          <span>${t('panelMemory')}</span>
+        </div>
+        <div class="detail-panel__content bars-list">
+          <div class="bar-group">
+            <div class="bar-group__meta">
+              <span>RAM 内存</span>
+              <span>${fmtMB(server.ram_used)} / ${fmtMB(server.ram_total)} (${ramPct.toFixed(1)}%)</span>
+            </div>
+            <div class="bar-group__track"><span style="width: ${ramPct}%"></span></div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-group__meta">
+              <span>Swap 交换</span>
+              <span>${fmtMB(server.swap_used)} / ${fmtMB(server.swap_total)} (${swapPct.toFixed(1)}%)</span>
+            </div>
+            <div class="bar-group__track"><span style="width: ${swapPct}%"></span></div>
+          </div>
+          <div class="bar-group">
+            <div class="bar-group__meta">
+              <span>Disk 存储</span>
+              <span>${fmtMB(server.disk_used)} / ${fmtMB(server.disk_total)} (${diskPct.toFixed(1)}%)</span>
+            </div>
+            <div class="bar-group__track"><span style="width: ${diskPct}%"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 面板 3: 网络速率与连接 -->
+      <div class="detail-panel">
+        <div class="detail-panel__title">
+          <svg viewBox="0 0 24 24" class="icon-svg"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg>
+          <span>${t('panelNetwork')}</span>
+        </div>
+        <div class="detail-panel__content spec-list">
+          <div class="spec-item"><span class="spec-label">${t('specNetSpeed')}</span><span class="spec-val">↓ ${fmtSpeed(server.net_in_speed)} · ↑ ${fmtSpeed(server.net_out_speed)}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specTrafficMonth')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx_monthly)} · ↑ ${fmtBytes(server.net_tx_monthly)}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specTrafficTotal')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx)} · ↑ ${fmtBytes(server.net_tx)}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specConns')}</span><span class="spec-val">TCP: ${server.tcp_conn || 0} · UDP: ${server.udp_conn || 0}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specProcesses')}</span><span class="spec-val">${server.processes || '--'} 进程</span></div>
+        </div>
+      </div>
+    </div>
   `;
   document.getElementById('detail-specs').innerHTML = specsHtml;
 
@@ -1330,14 +1378,10 @@ function updateConnectionState(st) {
   }
 }
 
-// ==================== 9. 外观主题切换 ====================
+// ==================== 9. 外观主题切换 (仅日间 / 夜间) ====================
 function applyAppearance() {
   const root = document.documentElement;
-  let effective = state.themeMode;
-
-  if (state.themeMode === 'system') {
-    effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
+  const effective = state.themeMode === 'light' ? 'light' : 'dark';
 
   root.dataset.appearance = effective;
 
@@ -1348,21 +1392,20 @@ function applyAppearance() {
 
   const btnTheme = document.getElementById('btn-theme');
   if (btnTheme) {
-    if (state.themeMode === 'dark') {
-      btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
-    } else if (state.themeMode === 'light') {
+    if (effective === 'dark') {
+      // 当前是夜间模式，显示太阳图标供切换到日间
       btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>`;
+      btnTheme.title = '切换至日间模式';
     } else {
-      btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>`;
+      // 当前是日间模式，显示月亮图标供切换到夜间
+      btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
+      btnTheme.title = '切换至夜间模式';
     }
   }
 }
 
 function cycleAppearance() {
-  if (state.themeMode === 'system') state.themeMode = 'dark';
-  else if (state.themeMode === 'dark') state.themeMode = 'light';
-  else state.themeMode = 'system';
-
+  state.themeMode = state.themeMode === 'dark' ? 'light' : 'dark';
   localStorage.setItem('horizon_appearance', state.themeMode);
   applyAppearance();
 }
@@ -1756,12 +1799,6 @@ async function loadInitialData() {
       if (titleEl) titleEl.textContent = state.config.site_title;
     }
 
-    if (state.config.theme_options) {
-      const opts = state.config.theme_options;
-      if (opts.default_appearance && !localStorage.getItem('horizon_appearance')) {
-        state.themeMode = opts.default_appearance.toLowerCase();
-      }
-    }
     applyAppearance();
 
     const serversData = await request('/api/servers');
@@ -1981,10 +2018,6 @@ function bindEvents() {
   });
 
   window.addEventListener('hashchange', handleRouteChange);
-
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (state.themeMode === 'system') applyAppearance();
-  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
