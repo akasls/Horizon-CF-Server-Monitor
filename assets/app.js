@@ -196,6 +196,7 @@ const state = {
   detailHistory: [],
   detailHiddenSeries: new Set(),
   wsState: 'connecting',
+  isDemoMode: false,
   fxRates: {
     base: 'EUR',
     rates: { CNY: 7.8, USD: 1.08, HKD: 8.45, TWD: 34.5, JPY: 165.0, GBP: 0.85, EUR: 1.0 },
@@ -1177,7 +1178,7 @@ function renderActiveDetailChart(server) {
   let chartCardHtml = '';
 
   if (state.detailTab === 'load') {
-    // 负载图表：CPU%, RAM%, Swap%
+    // 负载图表：CPU%, RAM%
     const cpuSeries = {
       key: 'cpu',
       label: 'CPU',
@@ -1325,7 +1326,10 @@ function updateConnectionState(st) {
   if (!el) return;
 
   el.className = 'status-inline';
-  if (st === 'open') {
+  if (state.isDemoMode) {
+    el.classList.add('status-inline--live');
+    el.textContent = '演示预览模式';
+  } else if (st === 'open') {
     el.classList.add('status-inline--live');
     el.textContent = t('live');
   } else if (st === 'connecting') {
@@ -1394,9 +1398,10 @@ function cycleViewMode() {
   renderServersGrid();
 }
 
-// ==================== 10. 路由与数据加载 ====================
+// ==================== 10. 路由、数据加载与演示数据 Fallback ====================
 let metricSocket = null;
 let pollingTimer = null;
+let demoTickTimer = null;
 
 function parseRoute() {
   const hash = window.location.hash || '#/';
@@ -1426,15 +1431,333 @@ async function handleRouteChange() {
     renderGroupBar();
     renderServersGrid();
 
-    // 更新 WebSocket 订阅全量节点
     if (metricSocket && state.servers.length) {
       metricSocket.setIds(state.servers.map(s => s.id));
     }
   }
 }
 
+// 生成完整的本地演示/预览数据
+function generateDemoData() {
+  const now = Date.now();
+  const demoServers = [
+    {
+      id: 'srv-hk-01',
+      name: 'HK-BGP-Pro-01',
+      server_group: '亚太节点',
+      tags: 'BGP,CN2,Direct',
+      region: 'HK',
+      os: 'Ubuntu 22.04 LTS',
+      arch: 'x86_64',
+      kernel_version: '6.8.0-36-generic',
+      cpu_cores: 4,
+      cpu_info: 'AMD EPYC 7763 64-Core Processor @ 2.45GHz',
+      cpu: 18.5,
+      ram_total: 8192,
+      ram_used: 3420,
+      swap_total: 2048,
+      swap_used: 128,
+      disk_total: 122880,
+      disk_used: 34500,
+      disk: { read_bps: 40960, write_bps: 20480, read_iops: 120, write_iops: 80, await_ms: 1.2, util: 4.5 },
+      net_in_speed: 28450120,
+      net_out_speed: 12450800,
+      net_rx: 2450120000000,
+      net_tx: 1450800000000,
+      net_rx_monthly: 480120000000,
+      net_tx_monthly: 280800000000,
+      processes: 186,
+      tcp_conn: 42,
+      udp_conn: 12,
+      ping_ct: 18, ping_cu: 24, ping_cm: 22, ping_bd: 35,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '38.00',
+      billing_cycle: 'month',
+      currency: '¥',
+      expire_date: new Date(now + 210 * 86400000).toISOString().split('T')[0],
+      traffic_limit: '1000GB',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 42 * 86400000),
+      last_updated: now,
+      is_online: true
+    },
+    {
+      id: 'srv-jp-02',
+      name: 'JP-TYO-Edge-02',
+      server_group: '亚太节点',
+      tags: 'IIJ,BGP',
+      region: 'JP',
+      os: 'Debian 12 (bookworm)',
+      arch: 'x86_64',
+      kernel_version: '6.1.0-18-amd64',
+      cpu_cores: 2,
+      cpu_info: 'Intel Xeon E5-2680 v4 @ 2.40GHz',
+      cpu: 9.2,
+      ram_total: 4096,
+      ram_used: 1320,
+      swap_total: 1024,
+      swap_used: 0,
+      disk_total: 61440,
+      disk_used: 12400,
+      disk: { read_bps: 10240, write_bps: 5120, read_iops: 45, write_iops: 20, await_ms: 0.8, util: 2.1 },
+      net_in_speed: 15400000,
+      net_out_speed: 8200000,
+      net_rx: 1850120000000,
+      net_tx: 920800000000,
+      net_rx_monthly: 320120000000,
+      net_tx_monthly: 180800000000,
+      processes: 112,
+      tcp_conn: 28,
+      udp_conn: 6,
+      ping_ct: 48, ping_cu: 52, ping_cm: 65, ping_bd: 60,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '180.00',
+      billing_cycle: 'year',
+      currency: '¥',
+      expire_date: new Date(now + 145 * 86400000).toISOString().split('T')[0],
+      traffic_limit: '2000GB',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 18 * 86400000),
+      last_updated: now,
+      is_online: true
+    },
+    {
+      id: 'srv-us-03',
+      name: 'US-LAX-GIA-03',
+      server_group: '北美节点',
+      tags: 'CN2-GIA,9929',
+      region: 'US',
+      os: 'Alpine Linux v3.19',
+      arch: 'x86_64',
+      kernel_version: '6.6.21-0-lts',
+      cpu_cores: 8,
+      cpu_info: 'AMD Ryzen 9 7950X 16-Core Processor',
+      cpu: 24.8,
+      ram_total: 16384,
+      ram_used: 8850,
+      swap_total: 4096,
+      swap_used: 512,
+      disk_total: 256000,
+      disk_used: 115200,
+      disk: { read_bps: 85000, write_bps: 45000, read_iops: 240, write_iops: 180, await_ms: 1.5, util: 6.8 },
+      net_in_speed: 42100000,
+      net_out_speed: 38200000,
+      net_rx: 4850120000000,
+      net_tx: 3920800000000,
+      net_rx_monthly: 820120000000,
+      net_tx_monthly: 710800000000,
+      processes: 260,
+      tcp_conn: 88,
+      udp_conn: 34,
+      ping_ct: 135, ping_cu: 142, ping_cm: 158, ping_bd: 145,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '12.50',
+      billing_cycle: 'month',
+      currency: '$',
+      expire_date: new Date(now + 28 * 86400000).toISOString().split('T')[0],
+      traffic_limit: '5000GB',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 95 * 86400000),
+      last_updated: now,
+      is_online: true
+    },
+    {
+      id: 'srv-sg-04',
+      name: 'SG-Sin-Premium-04',
+      server_group: '亚太节点',
+      tags: 'BGP,LowLatency',
+      region: 'SG',
+      os: 'Ubuntu 24.04 LTS',
+      arch: 'aarch64',
+      kernel_version: '6.8.0-28-generic',
+      cpu_cores: 4,
+      cpu_info: 'Ampere Altra Q80-30 @ 3.00GHz',
+      cpu: 14.1,
+      ram_total: 8192,
+      ram_used: 2850,
+      swap_total: 2048,
+      swap_used: 0,
+      disk_total: 102400,
+      disk_used: 22000,
+      disk: { read_bps: 25000, write_bps: 12000, read_iops: 80, write_iops: 50, await_ms: 0.9, util: 2.8 },
+      net_in_speed: 18500000,
+      net_out_speed: 9800000,
+      net_rx: 1520000000000,
+      net_tx: 890000000000,
+      net_rx_monthly: 290000000000,
+      net_tx_monthly: 140000000000,
+      processes: 145,
+      tcp_conn: 36,
+      udp_conn: 10,
+      ping_ct: 58, ping_cu: 68, ping_cm: 62, ping_bd: 70,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '5.99',
+      billing_cycle: 'month',
+      currency: '$',
+      expire_date: new Date(now + 320 * 86400000).toISOString().split('T')[0],
+      traffic_limit: '1500GB',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 33 * 86400000),
+      last_updated: now,
+      is_online: true
+    },
+    {
+      id: 'srv-de-05',
+      name: 'DE-FRA-Core-05',
+      server_group: '欧洲节点',
+      tags: 'Hetzner,10Gbps',
+      region: 'DE',
+      os: 'Debian 12',
+      arch: 'x86_64',
+      kernel_version: '6.1.0-13-amd64',
+      cpu_cores: 6,
+      cpu_info: 'AMD Ryzen 5 3600 6-Core Processor',
+      cpu: 31.2,
+      ram_total: 16384,
+      ram_used: 11200,
+      swap_total: 8192,
+      swap_used: 1024,
+      disk_total: 512000,
+      disk_used: 285000,
+      disk: { read_bps: 95000, write_bps: 65000, read_iops: 320, write_iops: 210, await_ms: 1.8, util: 8.5 },
+      net_in_speed: 35000000,
+      net_out_speed: 28000000,
+      net_rx: 6200000000000,
+      net_tx: 5100000000000,
+      net_rx_monthly: 1200000000000,
+      net_tx_monthly: 980000000000,
+      processes: 290,
+      tcp_conn: 120,
+      udp_conn: 45,
+      ping_ct: 168, ping_cu: 175, ping_cm: 190, ping_bd: 180,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '34.00',
+      billing_cycle: 'month',
+      currency: '€',
+      expire_date: new Date(now + 180 * 86400000).toISOString().split('T')[0],
+      traffic_limit: '20TB',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 140 * 86400000),
+      last_updated: now,
+      is_online: true
+    },
+    {
+      id: 'srv-cn-06',
+      name: 'CN-SHA-Core-06',
+      server_group: '国内节点',
+      tags: 'BGP,MultiLine',
+      region: 'CN',
+      os: 'CentOS Stream 9',
+      arch: 'x86_64',
+      kernel_version: '5.14.0-427.el9.x86_64',
+      cpu_cores: 4,
+      cpu_info: 'Intel Xeon Platinum 8269CY @ 2.50GHz',
+      cpu: 12.0,
+      ram_total: 8192,
+      ram_used: 2400,
+      swap_total: 2048,
+      swap_used: 0,
+      disk_total: 81920,
+      disk_used: 18500,
+      disk: { read_bps: 18000, write_bps: 9500, read_iops: 60, write_iops: 40, await_ms: 0.7, util: 1.8 },
+      net_in_speed: 8500000,
+      net_out_speed: 4200000,
+      net_rx: 950000000000,
+      net_tx: 520000000000,
+      net_rx_monthly: 180000000000,
+      net_tx_monthly: 95000000000,
+      processes: 128,
+      tcp_conn: 25,
+      udp_conn: 8,
+      ping_ct: 8, ping_cu: 12, ping_cm: 10, ping_bd: 15,
+      loss_ct: 0, loss_cu: 0, loss_cm: 0, loss_bd: 0,
+      price: '0',
+      billing_cycle: 'month',
+      currency: '¥',
+      expire_date: '2099-12-31',
+      traffic_limit: '0',
+      ip_v4: '1',
+      ip_v6: '1',
+      boot_time: String(now - 60 * 86400000),
+      last_updated: now,
+      is_online: true
+    }
+  ];
+
+  const totalIn = demoServers.reduce((sum, s) => sum + s.net_in_speed, 0);
+  const totalOut = demoServers.reduce((sum, s) => sum + s.net_out_speed, 0);
+  const totalRx = demoServers.reduce((sum, s) => sum + s.net_rx, 0);
+  const totalTx = demoServers.reduce((sum, s) => sum + s.net_tx, 0);
+
+  return {
+    config: {
+      site_title: 'Horizon Monitor · 本地预览',
+      version: '2.8.6',
+      is_public: true,
+      theme_options: { accent_color: 'Blue', default_appearance: 'Dark' }
+    },
+    servers: demoServers,
+    stats: {
+      total: demoServers.length,
+      online: demoServers.length,
+      offline: 0,
+      globalSpeedIn: totalIn,
+      globalSpeedOut: totalOut,
+      globalNetRx: totalRx,
+      globalNetTx: totalTx
+    }
+  };
+}
+
+function generateMockHistory(server, hours = 24) {
+  const pointsCount = 60;
+  const now = Date.now();
+  const intervalMs = (hours * 3600 * 1000) / pointsCount;
+  const history = [];
+  const baseTime = now - hours * 3600 * 1000;
+
+  for (let i = 0; i < pointsCount; i++) {
+    const ts = baseTime + i * intervalMs;
+    const wave = Math.sin(i / 5) * 8 + Math.cos(i / 3) * 4;
+    const cpuVal = clamp(server.cpu + wave + (Math.random() * 6 - 3), 2, 98);
+    const ramVal = clamp(server.ram_used + Math.sin(i / 8) * 400 + (Math.random() * 100 - 50), 200, server.ram_total);
+    const inSpeed = Math.max(1024, server.net_in_speed + wave * 800000 + (Math.random() * 2000000 - 1000000));
+    const outSpeed = Math.max(1024, server.net_out_speed + wave * 400000 + (Math.random() * 1000000 - 500000));
+
+    history.push({
+      timestamp: ts,
+      cpu: cpuVal,
+      ram_used: ramVal,
+      net_in_speed: inSpeed,
+      net_out_speed: outSpeed,
+      ping_ct: server.ping_ct ? clamp(server.ping_ct + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_cu: server.ping_cu ? clamp(server.ping_cu + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_cm: server.ping_cm ? clamp(server.ping_cm + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_bd: server.ping_bd ? clamp(server.ping_bd + (Math.random() * 4 - 2), 2, 999) : null,
+      disk: {
+        read_bps: Math.max(1024, (server.disk?.read_bps || 10240) + (Math.random() * 8000 - 4000)),
+        write_bps: Math.max(1024, (server.disk?.write_bps || 5120) + (Math.random() * 4000 - 2000))
+      }
+    });
+  }
+  return history;
+}
+
 async function loadServerDetailData(serverId) {
   try {
+    if (state.isDemoMode) {
+      const server = state.serversMap.get(serverId) || state.servers[0];
+      state.detailServer = server;
+      state.detailHistory = generateMockHistory(server, state.detailHours);
+      renderDetailPage();
+      return;
+    }
+
     const [serverData, historyData] = await Promise.all([
       request(`/api/server?id=${encodeURIComponent(serverId)}`),
       request(`/api/history/all?id=${encodeURIComponent(serverId)}&hours=${state.detailHours}`)
@@ -1446,7 +1769,13 @@ async function loadServerDetailData(serverId) {
 
     renderDetailPage();
   } catch (e) {
-    console.error('Failed to load server detail:', e);
+    console.error('Failed to load server detail, falling back to mock:', e);
+    const server = state.serversMap.get(serverId) || state.servers[0];
+    if (server) {
+      state.detailServer = server;
+      state.detailHistory = generateMockHistory(server, state.detailHours);
+      renderDetailPage();
+    }
   }
 }
 
@@ -1460,7 +1789,6 @@ async function loadInitialData() {
       if (titleEl) titleEl.textContent = state.config.site_title;
     }
 
-    // 读取主题自定义配置
     if (state.config.theme_options) {
       const opts = state.config.theme_options;
       if (opts.accent_color && !localStorage.getItem('horizon_accent')) {
@@ -1486,18 +1814,53 @@ async function loadInitialData() {
       renderServersGrid();
     });
 
-    // 4. 初次渲染
     handleRouteChange();
-
-    // 5. 建立 WebSocket 连接
     initWebSocket();
-
-    // 6. 启动备用轮询保活定时器
     startPollingWatchdog();
   } catch (e) {
-    console.error('Initial load failed:', e);
-    updateConnectionState('closed');
+    console.warn('API connection failed or local preview mode detected. Enabling demo mock data...', e);
+    state.isDemoMode = true;
+
+    const demo = generateDemoData();
+    state.config = demo.config;
+    state.servers = demo.servers;
+    state.serversMap = new Map(state.servers.map(s => [s.id, s]));
+    state.stats = demo.stats;
+
+    applyAppearance();
+    loadExchangeRates().then(() => {
+      renderGlobalStats();
+      renderServersGrid();
+    });
+
+    handleRouteChange();
+    updateConnectionState('open');
+
+    // 演示模式下模拟秒级心跳与微小数据波动
+    startDemoTick();
   }
+}
+
+function startDemoTick() {
+  if (demoTickTimer) clearInterval(demoTickTimer);
+  demoTickTimer = setInterval(() => {
+    if (!state.isDemoMode) return;
+
+    for (const s of state.servers) {
+      const delta = (Math.random() - 0.48) * 3;
+      s.cpu = clamp(s.cpu + delta, 3, 95);
+      s.net_in_speed = Math.max(1024, s.net_in_speed + (Math.random() - 0.5) * 2000000);
+      s.net_out_speed = Math.max(1024, s.net_out_speed + (Math.random() - 0.5) * 1500000);
+    }
+
+    state.stats.globalSpeedIn = state.servers.reduce((sum, s) => sum + s.net_in_speed, 0);
+    state.stats.globalSpeedOut = state.servers.reduce((sum, s) => sum + s.net_out_speed, 0);
+
+    if (state.currentRoute.view === 'home') {
+      renderGlobalStats();
+      renderServersGrid();
+    }
+  }, 3000);
 }
 
 function initWebSocket() {
@@ -1541,7 +1904,7 @@ function initWebSocket() {
 function startPollingWatchdog() {
   if (pollingTimer) clearInterval(pollingTimer);
   pollingTimer = setInterval(async () => {
-    // 若超过 15 秒未收到 WebSocket 消息，则通过 REST API 补拉一次最新数据
+    if (state.isDemoMode) return;
     if (Date.now() - state.lastWsMessageTime > 15000) {
       updateConnectionState('fallback');
       try {
@@ -1605,11 +1968,16 @@ function bindEvents() {
     if (!btn || !btn.dataset.hours) return;
     state.detailHours = parseInt(btn.dataset.hours, 10);
     if (state.currentRoute.serverId) {
-      try {
-        const historyData = await request(`/api/history/all?id=${encodeURIComponent(state.currentRoute.serverId)}&hours=${state.detailHours}`);
-        state.detailHistory = Array.isArray(historyData) ? historyData : [];
+      if (state.isDemoMode) {
+        state.detailHistory = generateMockHistory(state.detailServer, state.detailHours);
         renderDetailPage();
-      } catch {}
+      } else {
+        try {
+          const historyData = await request(`/api/history/all?id=${encodeURIComponent(state.currentRoute.serverId)}&hours=${state.detailHours}`);
+          state.detailHistory = Array.isArray(historyData) ? historyData : [];
+          renderDetailPage();
+        } catch {}
+      }
     }
   });
 
