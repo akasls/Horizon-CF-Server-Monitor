@@ -296,6 +296,27 @@ function isServerOnline(server) {
   return (Date.now() - last) <= threshold;
 }
 
+function resolveOsIcon(os) {
+  const s = String(os || '').toLowerCase();
+  let iconName = 'linux';
+  if (s.includes('ubuntu')) iconName = 'ubuntu';
+  else if (s.includes('debian')) iconName = 'debian';
+  else if (s.includes('alpine')) iconName = 'alpine';
+  else if (s.includes('centos')) iconName = 'centos';
+  else if (s.includes('redhat') || s.includes('rhel')) iconName = 'redhat';
+  else if (s.includes('fedora')) iconName = 'fedora';
+  else if (s.includes('arch')) iconName = 'arch';
+  else if (s.includes('windows')) iconName = 'windows';
+  else if (s.includes('darwin') || s.includes('macos') || s.includes('apple')) iconName = 'darwin';
+  else if (s.includes('openwrt')) iconName = 'openwrt';
+  else if (s.includes('freebsd')) iconName = 'freebsd';
+  else if (s.includes('alma')) iconName = 'almalinux';
+  else if (s.includes('rocky')) iconName = 'rocky';
+  else if (s.includes('synology') || s.includes('dsm')) iconName = 'synology';
+
+  return `/os-icons/${iconName}.svg`;
+}
+
 // ==================== 4. API Client & Turnstile 鉴权 ====================
 function getApiBase() {
   const meta = document.querySelector('meta[name="apiBase"]');
@@ -787,7 +808,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏
+// 8.2 分类标签栏 - 像素级高度与对齐优化
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -799,18 +820,19 @@ function renderGroupBar() {
   const groups = Array.from(groupsSet);
 
   let html = `
-    <div class="group-link-wrap">
-      <button class="group-link ${state.selectedGroup === 'ALL' ? 'is-active' : ''}" data-group="ALL" type="button">${t('groupAll')} (${state.servers.length})</button>
-    </div>
+    <button class="group-link ${state.selectedGroup === 'ALL' ? 'is-active' : ''}" data-group="ALL" type="button">
+      <span class="group-link__name">${t('groupAll')}</span>
+      <span class="group-link__badge">${state.servers.length}</span>
+    </button>
   `;
 
   for (const g of groups) {
     const count = state.servers.filter(s => (s.server_group || '').trim() === g).length;
     html += `
-      <span class="group-separator">/</span>
-      <div class="group-link-wrap">
-        <button class="group-link ${state.selectedGroup === g ? 'is-active' : ''}" data-group="${escapeHtml(g)}" type="button">${escapeHtml(g)} (${count})</button>
-      </div>
+      <button class="group-link ${state.selectedGroup === g ? 'is-active' : ''}" data-group="${escapeHtml(g)}" type="button">
+        <span class="group-link__name">${escapeHtml(g)}</span>
+        <span class="group-link__badge">${count}</span>
+      </button>
     `;
   }
 
@@ -965,8 +987,9 @@ function renderServerCard(server) {
     }
   }
 
-  // OS 图标或名称
+  // OS 图标与名称
   const osName = server.os || 'Linux';
+  const osIconUrl = resolveOsIcon(osName);
 
   return `
     <article class="server-card ${online ? 'is-online' : 'is-offline'}" data-id="${escapeHtml(id)}">
@@ -982,6 +1005,7 @@ function renderServerCard(server) {
                 <span class="srv-name-text">${escapeHtml(name)}</span>
               </div>
               <div class="srv-os">
+                <img src="${osIconUrl}" class="os-icon" alt="${escapeHtml(osName)}" onerror="this.style.display='none'">
                 <span>${escapeHtml(osName)}</span>
                 <span>·</span>
                 <span class="ip-tag ${server.ip_v4 === '1' ? 'ip-tag--active' : ''}">v4</span>
