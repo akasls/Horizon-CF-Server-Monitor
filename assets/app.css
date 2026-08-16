@@ -1,12 +1,12 @@
-/* Horizon Theme for CF-Server-Monitor - High-Precision Modern Engineering Dashboard */
+/* Horizon Theme for CF-Server-Monitor - Flat, Clean & Precision Engineering Style */
 :root {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   color-scheme: light;
-  --bg-color: #f8fafc;
+  --bg-color: #f1f5f9;
   --card-bg: #ffffff;
-  --card-bg-subtle: #f1f5f9;
+  --card-bg-subtle: #f8fafc;
   --card-bg-hover: #ffffff;
   --primary: #2563eb;
   --primary-rgb: 37, 99, 235;
@@ -20,21 +20,21 @@
   --danger-rgb: 239, 68, 68;
   --warning: #f59e0b;
   --border-color: #e2e8f0;
-  --border-hover: #cbd5e1;
+  --border-hover: #94a3b8;
   --radius: 6px;
   --radius-sm: 4px;
   --radius-pill: 9999px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.06);
-  --grid-line: rgba(226, 232, 240, 0.8);
+  --shadow: none;
+  --shadow-hover: none;
+  --grid-line: #e2e8f0;
 }
 
 :root[data-appearance="dark"] {
   color-scheme: dark;
-  --bg-color: #0b1120;
-  --card-bg: #111a2e;
-  --card-bg-subtle: #17233d;
-  --card-bg-hover: #141f36;
+  --bg-color: #0b0f19;
+  --card-bg: #111827;
+  --card-bg-subtle: #172033;
+  --card-bg-hover: #141c2e;
   --primary: #3b82f6;
   --primary-rgb: 59, 130, 246;
   --primary-light: rgba(59, 130, 246, 0.12);
@@ -46,11 +46,11 @@
   --danger: #f87171;
   --danger-rgb: 248, 113, 113;
   --warning: #fbbf24;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.16);
-  --shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  --shadow-hover: 0 10px 25px rgba(0, 0, 0, 0.5);
-  --grid-line: rgba(255, 255, 255, 0.06);
+  --border-color: #1e293b;
+  --border-hover: #334155;
+  --shadow: none;
+  --shadow-hover: none;
+  --grid-line: #1e293b;
 }
 
 /* 全局隐藏原生浏览器滚动条 */
@@ -77,7 +77,7 @@ html {
   min-height: 100%;
 }
 
-/* 渐变平滑主题切换 */
+/* 扁平纯色背景与平滑过渡 */
 body {
   margin: 0;
   padding: 0;
@@ -85,29 +85,16 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(ellipse 90% 45% at 50% -12%, rgba(37, 99, 235, 0.06), transparent 70%),
-    linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   background-color: var(--bg-color);
   color: var(--text-main);
   line-height: 1.5;
   transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), color 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-:root[data-appearance="dark"] body {
-  background:
-    radial-gradient(ellipse 90% 45% at 50% -12%, rgba(59, 130, 246, 0.09), transparent 70%),
-    linear-gradient(180deg, #0b1120 0%, #070c18 100%);
-  background-color: var(--bg-color);
-}
-
-/* 全局容器平滑过渡 */
 .navbar, .stat-box, .server-card, .detail-panel, .chart-card, .footer, .nav-icon-button, .search-box--inline, .hour-select, .detail-back-link {
   transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
               border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.25s ease,
-              box-shadow 0.35s ease,
-              transform 0.2s ease;
+              color 0.25s ease;
 }
 
 button, input, a, select {
@@ -241,7 +228,7 @@ button {
   display: block;
 }
 
-/* Top Global Stats (4 Boxes) */
+/* Top Global Stats (4 Boxes) - Flat */
 .global-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -253,7 +240,6 @@ button {
   background: var(--card-bg);
   padding: 1.1rem 1.25rem;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -275,7 +261,6 @@ button {
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-muted);
-  text-transform: none;
 }
 
 .metric-icon {
@@ -460,11 +445,10 @@ button {
   margin-bottom: 2.5rem;
 }
 
-/* Server Card - High-Density Precision Engineering */
+/* Server Card - Flat, Crisp & Structured */
 .server-card {
   background: var(--card-bg);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
   overflow: hidden;
   position: relative;
@@ -472,7 +456,6 @@ button {
 
 .server-card:hover {
   border-color: var(--border-hover);
-  box-shadow: var(--shadow-hover);
   background: var(--card-bg-hover);
 }
 
@@ -485,23 +468,45 @@ button {
   flex-direction: column;
 }
 
-/* Row 1: Header */
+/* Row 1: Header - 左侧呼吸点+名称，右侧国旗 */
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.95rem;
 }
 
-.srv-name {
+.srv-title-group {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 0.94rem;
-  font-weight: 700;
-  color: var(--text-main);
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pulse-dot--online {
+  background-color: var(--success);
+  box-shadow: 0 0 0 0 rgba(var(--success-rgb), 0.7);
+  animation: pulse-ring 2s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+.pulse-dot--offline {
+  background-color: var(--danger);
+}
+
+@keyframes pulse-ring {
+  to {
+    box-shadow: 0 0 0 5px rgba(var(--success-rgb), 0);
+  }
 }
 
 .srv-name-text {
@@ -509,6 +514,9 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text-main);
 }
 
 .srv-flag,
@@ -529,34 +537,14 @@ button {
   object-fit: cover;
   border-radius: 2px;
   flex-shrink: 0;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  white-space: nowrap;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.status-online {
-  color: var(--success);
-}
-
-.status-offline {
-  color: var(--danger);
-}
-
-/* Row 2: Dials (CPU, RAM, Disk) */
+/* Row 2: Dials (CPU, RAM, Disk) - RAM与Disk显示详细规格文字 */
 .dials {
   display: flex;
-  justify-content: space-around;
-  gap: 8px;
-  margin-bottom: 0.85rem;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 0.75rem;
 }
 
 .dial-group {
@@ -570,8 +558,8 @@ button {
 }
 
 .circle-wrap {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -581,14 +569,14 @@ button {
 }
 
 .circle-inner {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--text-main);
   font-family: var(--font-mono);
@@ -602,32 +590,33 @@ button {
 }
 
 .dial-val {
-  font-size: 0.66rem;
+  font-size: 0.65rem;
   color: var(--text-soft);
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  letter-spacing: -0.02em;
 }
 
-/* Row 3: Card Divider */
+/* 分割线 */
 .card-divider {
   height: 1px;
   background: var(--border-color);
-  margin: 0.65rem 0 0.75rem;
+  margin: 0.6rem 0 0.65rem;
   width: 100%;
 }
 
-/* Rows 4-6: Key-Value Metric Rows with Icon Labels */
+/* 4 行核心指标: 速率 / 流量 / 活跃 / 价值 */
 .card-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.74rem;
-  line-height: 1.6;
+  line-height: 1.55;
   gap: 8px;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.25rem;
 }
 
 .info-label {
@@ -662,42 +651,14 @@ button {
   white-space: nowrap;
 }
 
-/* 延迟矩阵排版 (结构化无挤压) */
-.ping-matrix {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ping-col {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 0.7rem;
-}
-
-.ping-k {
-  color: var(--text-soft);
-  font-size: 0.68rem;
-}
-
-.ping-v {
-  font-weight: 600;
-  font-family: var(--font-mono);
-}
-
-.ping-v--good { color: var(--success); }
-.ping-v--med { color: var(--warning); }
-.ping-v--bad { color: var(--danger); }
-
-/* Traffic Progress Mini Track */
+/* 流量进度条 */
 .traffic-track-mini {
   width: 100%;
   height: 3px;
   border-radius: 2px;
   background: var(--card-bg-subtle);
   overflow: hidden;
-  margin: 0.15rem 0 0.35rem;
+  margin: 0.1rem 0 0.3rem;
 }
 
 .traffic-track-mini span {
@@ -707,21 +668,36 @@ button {
   border-radius: inherit;
 }
 
-/* Row 6: Card Bottom Row */
-.card-bottom-row {
-  margin-top: 0.45rem;
-  padding-top: 0.55rem;
-  border-top: 1px dashed var(--border-color);
-  font-size: 0.72rem;
-  color: var(--text-muted);
+/* 底部平行放置延迟 (4 列并排) */
+.parallel-pings {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  text-align: center;
+  gap: 4px;
+  padding-top: 0.1rem;
 }
 
-.valuation-val {
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 500;
+.ping-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ping-cell__label {
+  font-size: 0.68rem;
+  color: var(--text-soft);
+}
+
+.ping-cell__val {
+  font-size: 0.72rem;
+  font-weight: 600;
   font-family: var(--font-mono);
 }
+
+.ping-cell__val--good { color: var(--success); }
+.ping-cell__val--med { color: var(--warning); }
+.ping-cell__val--bad { color: var(--danger); }
 
 /* Empty State */
 .empty-state {
@@ -816,7 +792,7 @@ button {
   height: 14px;
 }
 
-/* Detail Panels (3 Consolidated Structured Cards) */
+/* Detail Panels (3 Consolidated Structured Cards) - Flat */
 .detail-panels-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -828,7 +804,6 @@ button {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   padding: 1.2rem 1.3rem;
   display: flex;
   flex-direction: column;
@@ -929,7 +904,7 @@ button {
   transition: width 0.3s ease;
 }
 
-/* Detail Chart Card with Text Tabs & Dropdown (No '监控详情：') */
+/* Detail Chart Card with Text Tabs & Dropdown (Flat) */
 .charts-container {
   display: grid;
   grid-template-columns: 1fr;
@@ -941,7 +916,6 @@ button {
   background: var(--card-bg);
   padding: 1.25rem 1.35rem;
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -1176,7 +1150,6 @@ button {
   width: 100%;
   background: var(--card-bg);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-hover);
   border: 1px solid var(--border-color);
   padding: 1.5rem;
   display: flex;
@@ -1320,12 +1293,12 @@ button {
     gap: 4px;
   }
   .circle-wrap {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
   }
   .circle-inner {
-    width: 32px;
-    height: 32px;
-    font-size: 0.66rem;
+    width: 30px;
+    height: 30px;
+    font-size: 0.65rem;
   }
 }

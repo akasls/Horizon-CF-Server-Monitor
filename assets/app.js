@@ -1,6 +1,6 @@
 /**
  * Horizon Theme for CF-Server-Monitor
- * Clean, Modern & Elegant Minimalist Dashboard Style
+ * Flat & Clean Precision Minimalist Dashboard Style
  */
 
 // ==================== 1. 多语言字典与常量 ====================
@@ -32,15 +32,15 @@ const I18N = {
     expired: '已过期',
     permanent: '永久',
     remainingWorth: '剩余价值',
+    rate: '速率',
+    traffic: '流量',
+    activity: '活跃',
+    valuation: '价值',
     cpu: 'CPU',
     ram: 'RAM',
     disk: 'Disk',
     swap: 'Swap',
-    network: '网络',
-    traffic: '流量',
-    monthlyTraffic: '本月流量',
     latency: '延迟',
-    loss: '丢包',
     uptime: '运行时间',
     lastReport: '最后上报',
     panelSystem: '系统与硬件',
@@ -108,15 +108,15 @@ const I18N = {
     expired: 'Expired',
     permanent: 'Lifetime',
     remainingWorth: 'Remaining Worth',
+    rate: 'Speed',
+    traffic: 'Traffic',
+    activity: 'Active',
+    valuation: 'Value',
     cpu: 'CPU',
     ram: 'RAM',
     disk: 'Disk',
     swap: 'Swap',
-    network: 'Network',
-    traffic: 'Traffic',
-    monthlyTraffic: 'Monthly Traffic',
     latency: 'Latency',
-    loss: 'Loss',
     uptime: 'Uptime',
     lastReport: 'Last Report',
     panelSystem: 'System & Specs',
@@ -235,6 +235,16 @@ function fmtMB(mb, digits = 1) {
   const v = safeNum(mb, 0);
   if (v >= 1024) return fmtBytes(v * 1024 * 1024, digits);
   return `${Math.round(v)} MB`;
+}
+
+function fmtSizeDetail(usedMB, totalMB) {
+  const u = safeNum(usedMB, 0);
+  const t = safeNum(totalMB, 0);
+  if (!t) return '--';
+  if (t >= 1024) {
+    return `${(u / 1024).toFixed(1)} GB / ${(t / 1024).toFixed(1)} GB`;
+  }
+  return `${Math.round(u)} MB / ${Math.round(t)} MB`;
 }
 
 function pad2(n) {
@@ -864,7 +874,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (带图标，清晰结构化延迟与流量展示)
+// 渲染单个探针组件 (按要求重构：呼吸点、RAM/Disk详情规格、速率/流量/活跃/价值、平行放置延迟)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -876,33 +886,32 @@ function renderServerCard(server) {
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
 
-  // 在线天数
-  let uptimeDaysStr = '在线 0天';
-  if (server.boot_time) {
-    const days = Math.floor((Date.now() - safeNum(server.boot_time)) / 86400000);
-    uptimeDaysStr = days > 0 ? `在线 ${days}天` : (online ? '在线 <1天' : '离线');
+  // RAM 和 Disk 详细规格文本 (例如: 2.0 GB / 3.8 GB)
+  const ramDetailText = fmtSizeDetail(server.ram_used, server.ram_total);
+  const diskDetailText = fmtSizeDetail(server.disk_used, server.disk_total);
+
+  // 活跃：在线XX天 余XX天
+  const days = server.boot_time ? Math.floor((Date.now() - safeNum(server.boot_time)) / 86400000) : 0;
+  const uptimeText = online ? (days > 0 ? `在线 ${days}天` : '在线 <1天') : '离线';
+  const remWorth = computeRemainingWorth(server);
+  const remDaysText = remWorth ? (remWorth.expired ? '已过期' : `余 ${remWorth.days}天`) : '';
+  const activityText = remDaysText ? `${uptimeText} · ${remDaysText}` : uptimeText;
+
+  // 价值：购买价格 剩余价格
+  const priceVal = safeNum(server.price, 0);
+  let priceText = '';
+  if (priceVal > 0) {
+    const cycle = server.billing_cycle === 'year' ? '年' : server.billing_cycle === 'half-year' ? '半年' : server.billing_cycle === 'quarter' ? '季' : '月';
+    const buyPrice = `${server.currency || '¥'}${priceVal.toFixed(2)}${server.billing_cycle ? `/${cycle}` : ''}`;
+    const remVal = remWorth ? `${server.currency || '¥'}${remWorth.worth.toFixed(2)}` : '--';
+    priceText = `${buyPrice} · 剩余 ${remVal}`;
+  } else if (priceVal === -1 || server.price === '0') {
+    priceText = '免费 · 永久';
   } else {
-    uptimeDaysStr = online ? '在线' : '离线';
+    priceText = '--';
   }
 
-  // 延迟排版
-  const fmtPing = (val) => (val != null ? `${Math.round(val)}ms` : '--');
-  const pingTone = (val) => {
-    if (val == null) return '';
-    const num = Math.round(Number(val));
-    return num < 80 ? 'ping-v--good' : num < 180 ? 'ping-v--med' : 'ping-v--bad';
-  };
-
-  const pingMatrixHtml = `
-    <div class="ping-matrix">
-      <span class="ping-col"><span class="ping-k">电信</span><span class="ping-v ${pingTone(server.ping_ct)}">${fmtPing(server.ping_ct)}</span></span>
-      <span class="ping-col"><span class="ping-k">联通</span><span class="ping-v ${pingTone(server.ping_cu)}">${fmtPing(server.ping_cu)}</span></span>
-      <span class="ping-col"><span class="ping-k">移动</span><span class="ping-v ${pingTone(server.ping_cm)}">${fmtPing(server.ping_cm)}</span></span>
-      <span class="ping-col"><span class="ping-k">BGP</span><span class="ping-v ${pingTone(server.ping_bd)}">${fmtPing(server.ping_bd)}</span></span>
-    </div>
-  `;
-
-  // 流量数据显示
+  // 流量数据
   const trafficLimit = server.traffic_limit;
   let trafficValText = '';
   let trafficTrackHtml = '';
@@ -925,39 +934,29 @@ function renderServerCard(server) {
     trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
   }
 
-  // 价值与剩余价值计算
-  const priceVal = safeNum(server.price, 0);
-  const remWorth = computeRemainingWorth(server);
-  let valuationText = '';
-
-  if (priceVal > 0) {
-    const totalValStr = `${server.currency || '¥'}${priceVal.toFixed(2)}`;
-    const remValStr = remWorth ? `${server.currency || '¥'}${remWorth.worth.toFixed(2)}` : '--';
-    const daysStr = remWorth ? (remWorth.expired ? '已过期' : `余${remWorth.days}天`) : '--';
-    valuationText = `${totalValStr} · ${remValStr} · ${daysStr}`;
-  } else if (priceVal === -1 || server.price === '0') {
-    valuationText = '免费 · 永久';
-  } else {
-    valuationText = '--';
-  }
+  // 平行放置延迟排版
+  const fmtPing = (val) => (val != null ? `${Math.round(val)}ms` : '--');
+  const pingTone = (val) => {
+    if (val == null) return '';
+    const num = Math.round(Number(val));
+    return num < 80 ? 'ping-cell__val--good' : num < 180 ? 'ping-cell__val--med' : 'ping-cell__val--bad';
+  };
 
   return `
     <article class="server-card" data-id="${escapeHtml(id)}">
       <div class="server-card__button" role="button" tabindex="0" onclick="location.hash = '#/server/${encodeURIComponent(id)}'">
-        <!-- 行 1: 国旗 探针名称 与 在线状态 -->
+        <!-- 行 1: 绿色呼吸点/红色呼吸点 探针名称 与 国旗 -->
         <div class="card-header">
-          <div class="srv-name">
-            <span class="srv-flag">
-              <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
-            </span>
+          <div class="srv-title-group">
+            <span class="pulse-dot ${online ? 'pulse-dot--online' : 'pulse-dot--offline'}" title="${online ? '在线' : '离线'}"></span>
             <span class="srv-name-text">${escapeHtml(name)}</span>
           </div>
-          <span class="status-badge ${online ? 'status-online' : 'status-offline'}">
-            ${online ? '● 在线' : '● 离线'}
+          <span class="srv-flag">
+            <img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'">
           </span>
         </div>
 
-        <!-- 行 2: CPU RAM Disk 圆环 -->
+        <!-- 行 2: CPU RAM Disk 圆环与文字详情 -->
         <div class="dials">
           <div class="dial-group">
             <div class="circle-wrap" style="--pct: ${cpuPct}%">
@@ -972,7 +971,7 @@ function renderServerCard(server) {
               <div class="circle-inner">${ramPct.toFixed(0)}%</div>
             </div>
             <div class="dial-label">RAM</div>
-            <div class="dial-val">${fmtMB(server.ram_total)}</div>
+            <div class="dial-val" title="内存：${ramDetailText}">${ramDetailText}</div>
           </div>
 
           <div class="dial-group">
@@ -980,32 +979,23 @@ function renderServerCard(server) {
               <div class="circle-inner">${diskPct.toFixed(0)}%</div>
             </div>
             <div class="dial-label">Disk</div>
-            <div class="dial-val">${fmtMB(server.disk_total)}</div>
+            <div class="dial-val" title="磁盘：${diskDetailText}">${diskDetailText}</div>
           </div>
         </div>
 
-        <!-- 行 3: 分割线 -->
+        <!-- 分割线 1 -->
         <div class="card-divider"></div>
 
-        <!-- 行 4: 网络 带图标 -->
+        <!-- 速率 -->
         <div class="card-info-row">
           <span class="info-label">
             <svg class="row-icon" viewBox="0 0 24 24"><path d="M7 10v12M7 10l-3 3M7 10l3 3M17 14V2m0 0 3 3m-3-3-3 3"/></svg>
-            ${t('network')}
+            ${t('rate')}
           </span>
           <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
         </div>
 
-        <!-- 行 5: 延迟 带图标 与 结构化排版 -->
-        <div class="card-info-row">
-          <span class="info-label">
-            <svg class="row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            ${t('latency')}
-          </span>
-          <div class="info-val">${pingMatrixHtml}</div>
-        </div>
-
-        <!-- 行 6: 流量 带图标 -->
+        <!-- 流量 -->
         <div class="card-info-row">
           <span class="info-label">
             <svg class="row-icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
@@ -1015,10 +1005,45 @@ function renderServerCard(server) {
         </div>
         ${trafficTrackHtml}
 
-        <!-- 行 7: 在线天数 与 价值 -->
-        <div class="card-info-row card-bottom-row">
-          <span class="info-label">${uptimeDaysStr}</span>
-          <span class="info-val valuation-val">${valuationText}</span>
+        <!-- 活跃: 在线XX天余XX天 -->
+        <div class="card-info-row">
+          <span class="info-label">
+            <svg class="row-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            ${t('activity')}
+          </span>
+          <span class="info-val">${activityText}</span>
+        </div>
+
+        <!-- 价值: 购买价格 剩余价格 -->
+        <div class="card-info-row">
+          <span class="info-label">
+            <svg class="row-icon" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            ${t('valuation')}
+          </span>
+          <span class="info-val">${priceText}</span>
+        </div>
+
+        <!-- 分割线 2 -->
+        <div class="card-divider"></div>
+
+        <!-- 平行放置延迟 (4 列并排) -->
+        <div class="parallel-pings">
+          <div class="ping-cell">
+            <span class="ping-cell__label">电信</span>
+            <span class="ping-cell__val ${pingTone(server.ping_ct)}">${fmtPing(server.ping_ct)}</span>
+          </div>
+          <div class="ping-cell">
+            <span class="ping-cell__label">联通</span>
+            <span class="ping-cell__val ${pingTone(server.ping_cu)}">${fmtPing(server.ping_cu)}</span>
+          </div>
+          <div class="ping-cell">
+            <span class="ping-cell__label">移动</span>
+            <span class="ping-cell__val ${pingTone(server.ping_cm)}">${fmtPing(server.ping_cm)}</span>
+          </div>
+          <div class="ping-cell">
+            <span class="ping-cell__label">BGP</span>
+            <span class="ping-cell__val ${pingTone(server.ping_bd)}">${fmtPing(server.ping_bd)}</span>
+          </div>
         </div>
       </div>
     </article>
@@ -1046,12 +1071,12 @@ async function renderDetailPage() {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
-  // 顶部无包裹标题栏：左侧探针名，右侧返回按钮
+  // 顶部标题栏
   const topBarHtml = `
     <div class="detail-title-side">
+      <span class="pulse-dot ${online ? 'pulse-dot--online' : 'pulse-dot--offline'}"></span>
       <span class="detail-flag"><img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'"></span>
       <h2 class="detail-node-name">${escapeHtml(server.name || 'Unnamed')}</h2>
-      <span class="status-badge ${online ? 'status-online' : 'status-offline'}">${online ? '● 在线' : '● 离线'}</span>
       <span class="detail-uuid">${escapeHtml(server.id)}</span>
     </div>
     <div class="detail-back-side">
@@ -1152,7 +1177,7 @@ function renderActiveDetailChart(server) {
     xLabels.push({ index: i, label });
   }
 
-  // 顶部导航文字链接 (纯净分类，去除了'监控详情：')
+  // 顶部导航文字链接 (纯净分类，无'监控详情：')
   const navTabs = [
     { key: 'load', label: t('tabLoad') },
     { key: 'network', label: t('tabNetwork') },
@@ -1335,7 +1360,7 @@ function applyAppearance() {
 
   const themeMeta = document.getElementById('theme-color-meta');
   if (themeMeta) {
-    themeMeta.content = effective === 'dark' ? '#0b1120' : '#f8fafc';
+    themeMeta.content = effective === 'dark' ? '#0b0f19' : '#f1f5f9';
   }
 
   const btnTheme = document.getElementById('btn-theme');
