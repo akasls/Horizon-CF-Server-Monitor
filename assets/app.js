@@ -14,11 +14,10 @@ const I18N = {
     totalTraffic: '流量数据',
     totalTrafficSub: '下行 {rx} · 上行 {tx}',
     netSpeed: '网络速率',
-    netSpeedSub: '↓ {rx} · ↑ {tx}',
     groupAll: '全部',
     groupUngrouped: '未分组',
     groupPrefix: '分类：',
-    searchPlaceholder: '搜索节点、分组、系统、地区或标签',
+    searchPlaceholder: '搜索节点、分组、系统或地区',
     emptyTitle: '没有匹配的服务器',
     emptyDesc: '可以尝试切换分类标签或修改搜索关键词。',
     online: '在线',
@@ -53,7 +52,7 @@ const I18N = {
     specOsKernel: '操作系统',
     specUptime: '运行时间',
     specLastUpdated: '最后上报',
-    specNetSpeed: '当前网络速率',
+    specNetSpeed: '当前速率',
     specTrafficMonth: '本月流量',
     specTrafficTotal: '累计总流量',
     specConns: '网络连接',
@@ -61,7 +60,7 @@ const I18N = {
     tabLoad: '系统负载',
     tabNetwork: '网络速率',
     tabPing: '延迟与丢包',
-    tabDisk: '磁盘 IO',
+    tabDisk: '磁盘IO',
     h1: '1小时',
     h6: '6小时',
     h12: '12小时',
@@ -73,7 +72,7 @@ const I18N = {
     ct: '电信',
     cu: '联通',
     cm: '移动',
-    bd: 'BGP/全球',
+    bd: 'BGP',
     read: '读取',
     write: '写入',
     speedIn: '下行速率',
@@ -92,11 +91,10 @@ const I18N = {
     totalTraffic: 'Total Traffic',
     totalTrafficSub: 'Down {rx} · Up {tx}',
     netSpeed: 'Network Speed',
-    netSpeedSub: '↓ {rx} · ↑ {tx}',
     groupAll: 'All',
     groupUngrouped: 'Ungrouped',
     groupPrefix: 'Group:',
-    searchPlaceholder: 'Search node, group, OS, region, or tags',
+    searchPlaceholder: 'Search node, group, OS, or region',
     emptyTitle: 'No matching servers found',
     emptyDesc: 'Try selecting a different group or refining search keywords.',
     online: 'Online',
@@ -148,10 +146,10 @@ const I18N = {
     h96: '4d',
     h168: '7d',
     chartNoData: 'No metric data available',
-    ct: 'Telecom',
-    cu: 'Unicom',
-    cm: 'Mobile',
-    bd: 'BGP/Global',
+    ct: 'CT',
+    cu: 'CU',
+    cm: 'CM',
+    bd: 'BGP',
     read: 'Read',
     write: 'Write',
     speedIn: 'Inbound',
@@ -182,7 +180,7 @@ const state = {
   sysConfig: {},
   selectedGroup: 'ALL',
   searchQuery: '',
-  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark', // 仅日间 / 夜间二选一
+  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark', // 仅日间 / 夜间
   currentRoute: { view: 'home', serverId: null },
   detailServer: null,
   detailHours: 24,
@@ -711,7 +709,7 @@ function buildSvgLineChart(series, options = {}) {
     <svg class="chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id="area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.3"/>
+          <stop offset="0%" stop-color="var(--primary)" stop-opacity="0.25"/>
           <stop offset="100%" stop-color="var(--primary)" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
@@ -729,7 +727,7 @@ function buildSvgLineChart(series, options = {}) {
 
 // ==================== 8. 页面渲染模块 ====================
 
-// 8.1 顶部汇总统计方块
+// 8.1 顶部汇总统计方块 - 保证网络速率组件与标题严格左对齐
 function renderGlobalStats() {
   const root = document.getElementById('global-stats');
   if (!root) return;
@@ -769,17 +767,17 @@ function renderGlobalStats() {
       <div class="stat-box__sub">${t('totalTrafficSub', { rx: fmtBytes(globalNetRx, 1), tx: fmtBytes(globalNetTx, 1) })}</div>
     </article>
 
-    <!-- 网络速率 -->
+    <!-- 网络速率 (严格左对齐) -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('netSpeed')}</span>
         <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
       </div>
       <div class="stat-box__value">
-        <span class="text-down"><svg viewBox="0 0 24 24"><path d="m12 5v14m0 0-4-4m4 4 4-4"/></svg>${fmtSpeed(globalSpeedIn)}</span>
+        <span class="speed-item text-down"><span class="speed-arrow">↓</span> ${fmtSpeed(globalSpeedIn)}</span>
       </div>
       <div class="stat-box__sub">
-        <span class="text-up"><svg viewBox="0 0 24 24"><path d="m12 19V5m0 0-4 4m4-4 4 4"/></svg>${fmtSpeed(globalSpeedOut)}</span>
+        <span class="speed-item text-up"><span class="speed-arrow">↑</span> ${fmtSpeed(globalSpeedOut)}</span>
       </div>
     </article>
   `;
@@ -787,7 +785,7 @@ function renderGlobalStats() {
   root.innerHTML = cardsHtml;
 }
 
-// 8.2 分类标签栏
+// 8.2 分类标签栏 - 文字显示格式：全部 | 分类1 | 分类2
 function renderGroupBar() {
   const container = document.getElementById('group-links');
   if (!container) return;
@@ -798,27 +796,26 @@ function renderGroupBar() {
   }
   const groups = Array.from(groupsSet);
 
-  let html = `
-    <button class="group-link ${state.selectedGroup === 'ALL' ? 'is-active' : ''}" data-group="ALL" type="button">
-      <span class="group-link__name">${t('groupAll')}</span>
-      <span class="group-link__badge">${state.servers.length}</span>
-    </button>
-  `;
+  const items = [];
+  items.push(`
+    <span class="group-text-link ${state.selectedGroup === 'ALL' ? 'is-active' : ''}" data-group="ALL">
+      ${t('groupAll')} (${state.servers.length})
+    </span>
+  `);
 
   for (const g of groups) {
     const count = state.servers.filter(s => (s.server_group || '').trim() === g).length;
-    html += `
-      <button class="group-link ${state.selectedGroup === g ? 'is-active' : ''}" data-group="${escapeHtml(g)}" type="button">
-        <span class="group-link__name">${escapeHtml(g)}</span>
-        <span class="group-link__badge">${count}</span>
-      </button>
-    `;
+    items.push(`
+      <span class="group-text-link ${state.selectedGroup === g ? 'is-active' : ''}" data-group="${escapeHtml(g)}">
+        ${escapeHtml(g)} (${count})
+      </span>
+    `);
   }
 
-  container.innerHTML = html;
+  container.innerHTML = items.join('<span class="group-sep">|</span>');
 }
 
-// 8.3 节点列表与卡片渲染
+// 8.3 节点列表与卡片渲染 (一行4个卡片，去除多余包裹)
 function filteredServers() {
   let list = state.servers.slice();
 
@@ -883,26 +880,25 @@ function renderServerCard(server) {
 
   const uptimeStr = server.boot_time ? fmtDuration((Date.now() - safeNum(server.boot_time)) / 1000) : (online ? '在线' : '离线');
 
-  const pingCt = server.ping_ct;
-  const pingCu = server.ping_cu;
-  const pingCm = server.ping_cm;
-  const pingBd = server.ping_bd;
-
-  const renderPingChip = (label, val, loss) => {
+  // 延迟数据 - 纯文本流，去除多余标签边框
+  const renderPingText = (label, val, loss) => {
     if (val == null || val === false) return '';
     const num = Math.round(Number(val));
     const isLoss = safeNum(loss) > 0;
-    const tone = isLoss ? 'ping-chip--loss' : num < 80 ? 'ping-chip--good' : num < 180 ? 'ping-chip--medium' : 'ping-chip--bad';
-    return `<span class="ping-chip ${tone}" title="${label}: ${num}ms${isLoss ? ` (丢包 ${loss}%)` : ''}">${label} ${num}ms</span>`;
+    const tone = isLoss ? 'ping-text--loss' : num < 80 ? 'ping-text--good' : num < 180 ? 'ping-text--medium' : 'ping-text--bad';
+    return `<span class="ping-text ${tone}">${label} ${num}ms${isLoss ? ` (${loss}%)` : ''}</span>`;
   };
 
-  const pingsHtml = [
-    renderPingChip('电信', pingCt, server.loss_ct),
-    renderPingChip('联通', pingCu, server.loss_cu),
-    renderPingChip('移动', pingCm, server.loss_cm),
-    renderPingChip('BGP', pingBd, server.loss_bd)
-  ].filter(Boolean).join('');
+  const pingsList = [
+    renderPingText('电信', server.ping_ct, server.loss_ct),
+    renderPingText('联通', server.ping_cu, server.loss_cu),
+    renderPingText('移动', server.ping_cm, server.loss_cm),
+    renderPingText('BGP', server.ping_bd, server.loss_bd)
+  ].filter(Boolean);
 
+  const pingsHtml = pingsList.length ? pingsList.join('<span class="ping-sep">·</span>') : '';
+
+  // 流量使用进度
   const trafficLimit = server.traffic_limit;
   let trafficHtml = '';
   if (trafficLimit && trafficLimit !== '0') {
@@ -917,44 +913,42 @@ function renderServerCard(server) {
     const tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
 
     trafficHtml = `
-      <div class="list-row">
-        <span class="list-row__label">
-          <span class="metric-label-icon"><svg viewBox="0 0 24 24"><path d="M7 17h10M5 12h14M8 7h8"/></svg></span>
-          ${t('monthlyTraffic')}
-        </span>
-        <div class="list-row__value">
-          <div class="usage-bar">
-            <div class="usage-bar__text">
-              <span>${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)}</span>
-              <span>${tfPct.toFixed(0)}%</span>
-            </div>
-            <div class="usage-bar__track"><span style="width: ${tfPct}%"></span></div>
-          </div>
+      <div class="usage-bar">
+        <div class="usage-bar__text">
+          <span>本月 ${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)}</span>
+          <span>${tfPct.toFixed(0)}%</span>
         </div>
+        <div class="usage-bar__track"><span style="width: ${tfPct}%"></span></div>
       </div>
     `;
   }
 
+  // 胶囊外包裹：价格周期、剩余天数与剩余价值整合为一个胶囊
   const priceVal = safeNum(server.price, 0);
-  let priceHtml = '';
+  let priceStr = '';
   if (priceVal > 0) {
     const cycle = server.billing_cycle === 'year' ? '年' : server.billing_cycle === 'half-year' ? '半年' : server.billing_cycle === 'quarter' ? '季' : '月';
-    priceHtml = `<span class="tag blue">${server.currency || '¥'}${priceVal.toFixed(2)}/${cycle}</span>`;
+    priceStr = `${server.currency || '¥'}${priceVal.toFixed(2)}/${cycle}`;
   } else if (priceVal === -1 || server.price === '0') {
-    priceHtml = `<span class="tag green">${t('free')}</span>`;
+    priceStr = t('free');
   }
 
   const remWorth = computeRemainingWorth(server);
-  let remHtml = '';
-  if (remWorth) {
-    if (remWorth.expired) {
-      remHtml = `<span class="tag red">${t('expired')}</span>`;
-    } else {
-      remHtml = `
-        <span class="tag yellow">${t('daysLeft', { days: remWorth.days })}</span>
-        <span class="worth-pill" title="按当前周期剩余天数折算剩余价值">${server.currency || '¥'} ${remWorth.worth.toFixed(2)}</span>
-      `;
-    }
+  let capsuleHtml = '';
+  if (priceStr || remWorth) {
+    capsuleHtml = `
+      <div class="card-capsule-row">
+        <div class="worth-capsule">
+          ${priceStr ? `<span>${priceStr}</span>` : ''}
+          ${remWorth ? `
+            <span class="capsule-sep">·</span>
+            <span>${remWorth.expired ? t('expired') : `余 ${remWorth.days} 天`}</span>
+            <span class="capsule-sep">·</span>
+            <span class="capsule-worth">${server.currency || '¥'} ${remWorth.worth.toFixed(2)}</span>
+          ` : ''}
+        </div>
+      </div>
+    `;
   }
 
   const osName = server.os || 'Linux';
@@ -963,7 +957,7 @@ function renderServerCard(server) {
   return `
     <article class="server-card" data-id="${escapeHtml(id)}">
       <div class="server-card__button" role="button" tabindex="0" onclick="location.hash = '#/server/${encodeURIComponent(id)}'">
-        <!-- 头部信息 -->
+        <!-- 头部信息 (纯文本干净展示) -->
         <div class="card-header">
           <div class="name-os">
             <div class="srv-name">
@@ -976,14 +970,11 @@ function renderServerCard(server) {
               <img src="${osIconUrl}" class="os-icon" alt="${escapeHtml(osName)}" onerror="this.style.display='none'">
               <span>${escapeHtml(osName)}</span>
               <span>·</span>
-              <span class="ip-tag ${server.ip_v4 === '1' ? 'ip-tag--active' : ''}">v4</span>
-              <span class="ip-tag ${server.ip_v6 === '1' ? 'ip-tag--active' : ''}">v6</span>
-              <span>·</span>
               <span>${uptimeStr}</span>
             </div>
           </div>
           <span class="status-badge ${online ? 'status-online' : 'status-offline'}">
-            ${online ? t('online') : t('offline')}
+            ${online ? '● 在线' : '● 离线'}
           </span>
         </div>
 
@@ -1014,50 +1005,26 @@ function renderServerCard(server) {
           </div>
         </div>
 
-        <!-- 详细网络与延迟指标 -->
+        <!-- 网络速率与延迟纯净列表 -->
         <div class="list-data">
-          <div class="list-row">
-            <span class="list-row__label">
-              <span class="metric-label-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
-              ${t('network')}
-            </span>
-            <div class="list-row__value">
-              <span class="plain-metric plain-metric--up">
-                <svg viewBox="0 0 24 24"><path d="m12 19V5m0 0-4 4m4-4 4 4"/></svg>${fmtSpeed(server.net_out_speed)}
-              </span>
-              <span class="plain-metric plain-metric--down">
-                <svg viewBox="0 0 24 24"><path d="m12 5v14m0 0-4-4m4 4 4-4"/></svg>${fmtSpeed(server.net_in_speed)}
-              </span>
-            </div>
+          <div class="card-net-row">
+            <span class="net-speed-val"><span class="speed-arrow">↓</span> ${fmtSpeed(server.net_in_speed)}</span>
+            <span class="net-speed-val"><span class="speed-arrow">↑</span> ${fmtSpeed(server.net_out_speed)}</span>
           </div>
 
-          ${pingsHtml ? `
-            <div class="list-row">
-              <span class="list-row__label">
-                <span class="metric-label-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-                ${t('latency')}
-              </span>
-              <div class="list-row__value srv-latency">
-                ${pingsHtml}
-              </div>
-            </div>
-          ` : ''}
+          ${pingsHtml ? `<div class="card-ping-row">${pingsHtml}</div>` : ''}
 
           ${trafficHtml}
         </div>
 
-        ${(priceHtml || remHtml) ? `
-          <div class="card-footer">
-            ${priceHtml}
-            ${remHtml}
-          </div>
-        ` : ''}
+        <!-- 底部胶囊包裹 -->
+        ${capsuleHtml}
       </div>
     </article>
   `;
 }
 
-// 8.4 详情页渲染 - 整合为三大聚合面板，拒绝散落小方块
+// 8.4 详情页渲染 - 左上探针名，右上返回按钮；整合 3 大面板；图表头部分类与下拉框
 async function renderDetailPage() {
   const container = document.getElementById('detail-view');
   const serverId = state.currentRoute.serverId;
@@ -1066,9 +1033,9 @@ async function renderDetailPage() {
   const server = state.serversMap.get(serverId) || state.detailServer;
   if (!server) {
     container.innerHTML = `
-      <div class="detail-header-card">
-        <button class="back-btn" onclick="location.hash='#/'"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>${t('back')}</button>
-        <h2>${t('loading')}...</h2>
+      <div class="detail-top-bar">
+        <h2 class="detail-node-name">${t('loading')}...</h2>
+        <a class="detail-back-link" onclick="location.hash='#/'">← ${t('back')}</a>
       </div>
     `;
     return;
@@ -1078,21 +1045,23 @@ async function renderDetailPage() {
   const region = (server.region || 'UN').toUpperCase();
   const flagUrl = `/flags/${region.toLowerCase()}.svg`;
 
-  // 顶部卡片
-  const headerHtml = `
-    <div class="detail-header-card__left">
-      <button class="back-btn" onclick="location.hash='#/'"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>${t('back')}</button>
-      <div class="detail-title-group">
-        <span class="detail-flag"><img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'"></span>
-        <h2>${escapeHtml(server.name || 'Unnamed')}</h2>
-        <span class="status-badge ${online ? 'status-online' : 'status-offline'}">${online ? t('online') : t('offline')}</span>
-        <span class="uuid-tag">${escapeHtml(server.id)}</span>
-      </div>
+  // 顶部无包裹标题栏：左侧探针名，右侧返回按钮
+  const topBarHtml = `
+    <div class="detail-title-side">
+      <span class="detail-flag"><img src="${flagUrl}" class="flag-image" alt="${region}" onerror="this.outerHTML='🌐'"></span>
+      <h2 class="detail-node-name">${escapeHtml(server.name || 'Unnamed')}</h2>
+      <span class="status-badge ${online ? 'status-online' : 'status-offline'}">${online ? '● 在线' : '● 离线'}</span>
+      <span class="detail-uuid">${escapeHtml(server.id)}</span>
+    </div>
+    <div class="detail-back-side">
+      <a class="detail-back-link" onclick="location.hash='#/'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        <span>${t('back')}</span>
+      </a>
     </div>
   `;
-  document.getElementById('detail-header').innerHTML = headerHtml;
+  document.getElementById('detail-header').innerHTML = topBarHtml;
 
-  // 内存与存储百分比
   const ramPct = calcPct(server.ram_used, server.ram_total);
   const swapPct = calcPct(server.swap_used, server.swap_total);
   const diskPct = calcPct(server.disk_used, server.disk_total);
@@ -1115,7 +1084,7 @@ async function renderDetailPage() {
         </div>
       </div>
 
-      <!-- 面板 2: 内存与存储使用 -->
+      <!-- 面板 2: 内存与存储 -->
       <div class="detail-panel">
         <div class="detail-panel__title">
           <svg viewBox="0 0 24 24" class="icon-svg"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M6 18h12"/></svg>
@@ -1146,7 +1115,7 @@ async function renderDetailPage() {
         </div>
       </div>
 
-      <!-- 面板 3: 网络速率与连接 -->
+      <!-- 面板 3: 网络与连接 -->
       <div class="detail-panel">
         <div class="detail-panel__title">
           <svg viewBox="0 0 24 24" class="icon-svg"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg>
@@ -1164,29 +1133,6 @@ async function renderDetailPage() {
   `;
   document.getElementById('detail-specs').innerHTML = specsHtml;
 
-  const tabs = [
-    { key: 'load', label: t('tabLoad') },
-    { key: 'network', label: t('tabNetwork') },
-    { key: 'ping', label: t('tabPing') },
-    { key: 'disk', label: t('tabDisk') }
-  ];
-  document.getElementById('detail-section-tabs').innerHTML = tabs.map(tItem => `
-    <button class="tab ${state.detailTab === tItem.key ? 'is-active' : ''}" data-tab="${tItem.key}" type="button">${tItem.label}</button>
-  `).join('');
-
-  const hoursList = [
-    { h: 1, label: t('h1') },
-    { h: 6, label: t('h6') },
-    { h: 12, label: t('h12') },
-    { h: 24, label: t('h24') },
-    { h: 48, label: t('h48') },
-    { h: 96, label: t('h96') },
-    { h: 168, label: t('h168') }
-  ];
-  document.getElementById('detail-hour-tabs').innerHTML = hoursList.map(hItem => `
-    <button class="tab ${state.detailHours === hItem.h ? 'is-active' : ''}" data-hours="${hItem.h}" type="button">${hItem.label}</button>
-  `).join('');
-
   renderActiveDetailChart(server);
 }
 
@@ -1195,14 +1141,6 @@ function renderActiveDetailChart(server) {
   if (!chartContainer) return;
 
   const history = state.detailHistory || [];
-  if (!history.length) {
-    chartContainer.innerHTML = `
-      <div class="chart-card">
-        <svg class="chart-svg" viewBox="0 0 960 280"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="13">${t('chartNoData')}</text></svg>
-      </div>
-    `;
-    return;
-  }
 
   const xLabels = [];
   const step = Math.max(1, Math.floor((history.length - 1) / 4));
@@ -1213,9 +1151,38 @@ function renderActiveDetailChart(server) {
     xLabels.push({ index: i, label });
   }
 
-  let chartCardHtml = '';
+  // 顶部导航文字链接：监控详情：系统负载 | 网络速率 | 延迟与丢包 | 磁盘IO
+  const navTabs = [
+    { key: 'load', label: t('tabLoad') },
+    { key: 'network', label: t('tabNetwork') },
+    { key: 'ping', label: t('tabPing') },
+    { key: 'disk', label: t('tabDisk') }
+  ];
 
-  if (state.detailTab === 'load') {
+  const navTabsHtml = navTabs.map(item => `
+    <span class="chart-nav-link ${state.detailTab === item.key ? 'is-active' : ''}" data-tab="${item.key}">
+      ${item.label}
+    </span>
+  `).join('<span class="chart-nav-sep">|</span>');
+
+  // 右上角时间跨度下拉框
+  const hoursOptions = [
+    { h: 1, label: t('h1') },
+    { h: 6, label: t('h6') },
+    { h: 12, label: t('h12') },
+    { h: 24, label: t('h24') },
+    { h: 48, label: t('h48') },
+    { h: 96, label: t('h96') },
+    { h: 168, label: t('h168') }
+  ].map(opt => `<option value="${opt.h}" ${state.detailHours === opt.h ? 'selected' : ''}>${opt.label}</option>`).join('');
+
+  let svgHtml = '';
+  let legendHtml = '';
+  let summaryText = '';
+
+  if (!history.length) {
+    svgHtml = `<svg class="chart-svg" viewBox="0 0 960 280"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="13">${t('chartNoData')}</text></svg>`;
+  } else if (state.detailTab === 'load') {
     const cpuSeries = {
       key: 'cpu',
       label: 'CPU',
@@ -1229,7 +1196,7 @@ function renderActiveDetailChart(server) {
       titles: history.map(h => `${fmtDateTime(h.timestamp)} · RAM: ${fmtMB(h.ram_used)} (${calcPct(h.ram_used, server.ram_total).toFixed(1)}%)`)
     };
 
-    const svg = buildSvgLineChart([cpuSeries, ramSeries], {
+    svgHtml = buildSvgLineChart([cpuSeries, ramSeries], {
       min: 0,
       max: 100,
       fmtY: (v) => `${Math.round(v)}%`,
@@ -1238,22 +1205,13 @@ function renderActiveDetailChart(server) {
 
     const latestCpu = cpuSeries.values[cpuSeries.values.length - 1] || 0;
     const latestRam = ramSeries.values[ramSeries.values.length - 1] || 0;
+    summaryText = `CPU: ${latestCpu.toFixed(1)}% · RAM: ${latestRam.toFixed(1)}%`;
 
-    chartCardHtml = `
-      <article class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">
-            <span class="chart-title__icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg></span>
-            ${t('tabLoad')}
-          </span>
-          <span class="chart-val">CPU: ${latestCpu.toFixed(1)}% · RAM: ${latestRam.toFixed(1)}%</span>
-        </div>
-        ${svg}
-        <div class="chart-legend">
-          <span class="legend-item ${state.detailHiddenSeries.has('cpu') ? 'is-disabled' : ''}" data-key="cpu"><span class="legend-dot"></span>CPU 利用率</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('ram') ? 'is-disabled' : ''}" data-key="ram"><span class="legend-dot" style="background:var(--success)"></span>RAM 内存利用率</span>
-        </div>
-      </article>
+    legendHtml = `
+      <div class="chart-legend">
+        <span class="legend-item ${state.detailHiddenSeries.has('cpu') ? 'is-disabled' : ''}" data-key="cpu"><span class="legend-dot"></span>CPU 利用率</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('ram') ? 'is-disabled' : ''}" data-key="ram"><span class="legend-dot" style="background:var(--success)"></span>RAM 内存利用率</span>
+      </div>
     `;
   } else if (state.detailTab === 'network') {
     const inSeries = {
@@ -1269,7 +1227,7 @@ function renderActiveDetailChart(server) {
       titles: history.map(h => `${fmtDateTime(h.timestamp)} · ↑ ${fmtSpeed(h.net_out_speed)}`)
     };
 
-    const svg = buildSvgLineChart([inSeries, outSeries], {
+    svgHtml = buildSvgLineChart([inSeries, outSeries], {
       min: 0,
       fmtY: (v) => fmtSpeed(v),
       xLabels
@@ -1277,22 +1235,13 @@ function renderActiveDetailChart(server) {
 
     const latestIn = inSeries.values[inSeries.values.length - 1] || 0;
     const latestOut = outSeries.values[outSeries.values.length - 1] || 0;
+    summaryText = `↓ ${fmtSpeed(latestIn)} · ↑ ${fmtSpeed(latestOut)}`;
 
-    chartCardHtml = `
-      <article class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">
-            <span class="chart-title__icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6Z"/></svg></span>
-            ${t('tabNetwork')}
-          </span>
-          <span class="chart-val">↓ ${fmtSpeed(latestIn)} · ↑ ${fmtSpeed(latestOut)}</span>
-        </div>
-        ${svg}
-        <div class="chart-legend">
-          <span class="legend-item ${state.detailHiddenSeries.has('net_in') ? 'is-disabled' : ''}" data-key="net_in"><span class="legend-dot"></span>${t('speedIn')}</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('net_out') ? 'is-disabled' : ''}" data-key="net_out"><span class="legend-dot" style="background:var(--success)"></span>${t('speedOut')}</span>
-        </div>
-      </article>
+    legendHtml = `
+      <div class="chart-legend">
+        <span class="legend-item ${state.detailHiddenSeries.has('net_in') ? 'is-disabled' : ''}" data-key="net_in"><span class="legend-dot"></span>${t('speedIn')}</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('net_out') ? 'is-disabled' : ''}" data-key="net_out"><span class="legend-dot" style="background:var(--success)"></span>${t('speedOut')}</span>
+      </div>
     `;
   } else if (state.detailTab === 'ping') {
     const ctSeries = { key: 'ct', label: '电信', values: history.map(h => safeNum(h.ping_ct, null)) };
@@ -1300,57 +1249,56 @@ function renderActiveDetailChart(server) {
     const cmSeries = { key: 'cm', label: '移动', values: history.map(h => safeNum(h.ping_cm, null)) };
     const bdSeries = { key: 'bd', label: 'BGP', values: history.map(h => safeNum(h.ping_bd, null)) };
 
-    const svg = buildSvgLineChart([ctSeries, cuSeries, cmSeries, bdSeries], {
+    svgHtml = buildSvgLineChart([ctSeries, cuSeries, cmSeries, bdSeries], {
       min: 0,
       fmtY: (v) => `${Math.round(v)}ms`,
       xLabels
     });
 
-    chartCardHtml = `
-      <article class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">
-            <span class="chart-title__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-            ${t('tabPing')}
-          </span>
-        </div>
-        ${svg}
-        <div class="chart-legend">
-          <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>中国电信</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>中国联通</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>中国移动</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>BGP / 全球</span>
-        </div>
-      </article>
+    legendHtml = `
+      <div class="chart-legend">
+        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>中国电信</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>中国联通</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>中国移动</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>BGP / 全球</span>
+      </div>
     `;
   } else if (state.detailTab === 'disk') {
     const readSeries = { key: 'read_bps', label: `${t('read')} (B/s)`, values: history.map(h => safeNum(h.disk?.read_bps || h.disk_read_bps, 0)) };
     const writeSeries = { key: 'write_bps', label: `${t('write')} (B/s)`, values: history.map(h => safeNum(h.disk?.write_bps || h.disk_write_bps, 0)) };
 
-    const svg = buildSvgLineChart([readSeries, writeSeries], {
+    svgHtml = buildSvgLineChart([readSeries, writeSeries], {
       min: 0,
       fmtY: (v) => fmtBytes(v) + '/s',
       xLabels
     });
 
-    chartCardHtml = `
-      <article class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">
-            <span class="chart-title__icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M6 18h12"/></svg></span>
-            ${t('tabDisk')}
-          </span>
-        </div>
-        ${svg}
-        <div class="chart-legend">
-          <span class="legend-item ${state.detailHiddenSeries.has('read_bps') ? 'is-disabled' : ''}" data-key="read_bps"><span class="legend-dot"></span>磁盘读取速率</span>
-          <span class="legend-item ${state.detailHiddenSeries.has('write_bps') ? 'is-disabled' : ''}" data-key="write_bps"><span class="legend-dot" style="background:var(--success)"></span>磁盘写入速率</span>
-        </div>
-      </article>
+    legendHtml = `
+      <div class="chart-legend">
+        <span class="legend-item ${state.detailHiddenSeries.has('read_bps') ? 'is-disabled' : ''}" data-key="read_bps"><span class="legend-dot"></span>磁盘读取速率</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('write_bps') ? 'is-disabled' : ''}" data-key="write_bps"><span class="legend-dot" style="background:var(--success)"></span>磁盘写入速率</span>
+      </div>
     `;
   }
 
-  chartContainer.innerHTML = chartCardHtml;
+  chartContainer.innerHTML = `
+    <article class="chart-card">
+      <div class="chart-card-header">
+        <div class="chart-nav-links" id="chart-nav-links">
+          <span class="chart-nav-title">监控详情：</span>
+          ${navTabsHtml}
+        </div>
+        <div class="chart-header-right">
+          ${summaryText ? `<span class="chart-val-summary">${summaryText}</span>` : ''}
+          <select id="detail-hour-select" class="hour-select">
+            ${hoursOptions}
+          </select>
+        </div>
+      </div>
+      ${svgHtml}
+      ${legendHtml}
+    </article>
+  `;
 }
 
 // 8.5 连接状态指示器
@@ -1387,17 +1335,15 @@ function applyAppearance() {
 
   const themeMeta = document.getElementById('theme-color-meta');
   if (themeMeta) {
-    themeMeta.content = effective === 'dark' ? '#0b1120' : '#f8fafc';
+    themeMeta.content = effective === 'dark' ? '#0a0f1d' : '#f8fafc';
   }
 
   const btnTheme = document.getElementById('btn-theme');
   if (btnTheme) {
     if (effective === 'dark') {
-      // 当前是夜间模式，显示太阳图标供切换到日间
       btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>`;
       btnTheme.title = '切换至日间模式';
     } else {
-      // 当前是日间模式，显示月亮图标供切换到夜间
       btnTheme.innerHTML = `<svg viewBox="0 0 24 24" class="icon-svg"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
       btnTheme.title = '切换至夜间模式';
     }
@@ -1941,45 +1887,48 @@ function bindEvents() {
   }
 
   document.getElementById('group-links')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.group-link');
-    if (!btn) return;
-    state.selectedGroup = btn.dataset.group || 'ALL';
+    const link = e.target.closest('.group-text-link');
+    if (!link) return;
+    state.selectedGroup = link.dataset.group || 'ALL';
     renderGroupBar();
     renderServersGrid();
   });
 
-  document.getElementById('detail-section-tabs')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.tab');
-    if (!btn || !btn.dataset.tab) return;
-    state.detailTab = btn.dataset.tab;
-    renderDetailPage();
-  });
+  // 详情页图表导航点击
+  document.getElementById('detail-charts-container')?.addEventListener('click', (e) => {
+    const navLink = e.target.closest('.chart-nav-link');
+    if (navLink && navLink.dataset.tab) {
+      state.detailTab = navLink.dataset.tab;
+      if (state.detailServer) renderActiveDetailChart(state.detailServer);
+      return;
+    }
 
-  document.getElementById('detail-hour-tabs')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.tab');
-    if (!btn || !btn.dataset.hours) return;
-    state.detailHours = parseInt(btn.dataset.hours, 10);
-    if (state.currentRoute.serverId) {
-      if (state.isDemoMode) {
-        state.detailHistory = generateMockHistory(state.detailServer, state.detailHours);
-        renderDetailPage();
-      } else {
-        try {
-          const historyData = await request(`/api/history/all?id=${encodeURIComponent(state.currentRoute.serverId)}&hours=${state.detailHours}`);
-          state.detailHistory = Array.isArray(historyData) ? historyData : [];
-          renderDetailPage();
-        } catch {}
-      }
+    const legendItem = e.target.closest('.legend-item');
+    if (legendItem && legendItem.dataset.key) {
+      const key = legendItem.dataset.key;
+      if (state.detailHiddenSeries.has(key)) state.detailHiddenSeries.delete(key);
+      else state.detailHiddenSeries.add(key);
+      if (state.detailServer) renderActiveDetailChart(state.detailServer);
     }
   });
 
-  document.getElementById('detail-charts-container')?.addEventListener('click', (e) => {
-    const legendItem = e.target.closest('.legend-item');
-    if (!legendItem || !legendItem.dataset.key) return;
-    const key = legendItem.dataset.key;
-    if (state.detailHiddenSeries.has(key)) state.detailHiddenSeries.delete(key);
-    else state.detailHiddenSeries.add(key);
-    renderDetailPage();
+  // 详情页时间下拉框切换
+  document.getElementById('detail-charts-container')?.addEventListener('change', async (e) => {
+    if (e.target && e.target.id === 'detail-hour-select') {
+      state.detailHours = parseInt(e.target.value, 10);
+      if (state.currentRoute.serverId) {
+        if (state.isDemoMode) {
+          state.detailHistory = generateMockHistory(state.detailServer, state.detailHours);
+          renderActiveDetailChart(state.detailServer);
+        } else {
+          try {
+            const historyData = await request(`/api/history/all?id=${encodeURIComponent(state.currentRoute.serverId)}&hours=${state.detailHours}`);
+            state.detailHistory = Array.isArray(historyData) ? historyData : [];
+            renderActiveDetailChart(state.detailServer);
+          } catch {}
+        }
+      }
+    }
   });
 
   const tooltipRoot = document.getElementById('tooltip-root');
