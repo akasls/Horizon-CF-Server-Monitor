@@ -667,30 +667,6 @@ button {
   white-space: nowrap;
 }
 
-/* 内嵌式优雅流量条 */
-.traffic-val-box {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.traffic-mini-bar {
-  width: 36px;
-  height: 4px;
-  background: var(--card-bg-subtle);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.traffic-mini-fill {
-  height: 100%;
-  background: var(--primary);
-  border-radius: inherit;
-}
-
 /* 底部平行放置延迟 (4 列并排) */
 .parallel-pings {
   display: grid;

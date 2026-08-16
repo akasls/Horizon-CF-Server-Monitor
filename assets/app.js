@@ -245,6 +245,27 @@ function fmtPrice(amount, currency = '¥') {
   return `${currency}${val}`;
 }
 
+// 流量限制字符串智能换算 (5000GB -> 5 TB / 4.9 TB, 1000GB -> 1 TB)
+function parseTrafficBytes(val) {
+  if (!val || val === '0' || val === 0) return 0;
+  if (typeof val === 'number') return val;
+  const s = String(val).trim().toUpperCase();
+  const num = parseFloat(s);
+  if (isNaN(num)) return 0;
+  if (s.endsWith('PB') || s.endsWith('P')) return num * 1024 * 1024 * 1024 * 1024 * 1024;
+  if (s.endsWith('TB') || s.endsWith('T')) return num * 1024 * 1024 * 1024 * 1024;
+  if (s.endsWith('GB') || s.endsWith('G')) return num * 1024 * 1024 * 1024;
+  if (s.endsWith('MB') || s.endsWith('M')) return num * 1024 * 1024;
+  if (s.endsWith('KB') || s.endsWith('K')) return num * 1024;
+  return num;
+}
+
+function fmtTrafficLimit(val) {
+  const bytes = parseTrafficBytes(val);
+  if (bytes <= 0) return '无限制';
+  return fmtBytes(bytes, 1);
+}
+
 // 紧凑且精准的 RAM/Disk 详情格式 (例如 2.0G / 3.8G)
 function fmtSizeDetail(usedMB, totalMB) {
   const u = safeNum(usedMB, 0);
@@ -870,7 +891,7 @@ function renderServersGrid() {
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
-// 渲染单个探针组件 (无多余尾数、内嵌优雅流量条、合理行高间距)
+// 渲染单个探针组件 (无进度条、流量智能转换至TB、无多余尾数、合理行高间距)
 function renderServerCard(server) {
   const online = isServerOnline(server);
   const id = server.id;
@@ -907,22 +928,14 @@ function renderServerCard(server) {
     priceText = '--';
   }
 
-  // 流量数据与内嵌式微进度条
-  const trafficLimit = server.traffic_limit;
+  // 流量数据 (自动单位换算: 5000GB -> 4.9 TB, 1000GB -> 1 TB)
+  const limitBytes = parseTrafficBytes(server.traffic_limit);
   let trafficValText = '';
-  let limitBytes = 0;
-  let tfPct = 0;
 
-  if (trafficLimit && trafficLimit !== '0') {
-    const tStr = String(trafficLimit).toUpperCase();
-    if (tStr.endsWith('TB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024 * 1024;
-    else if (tStr.endsWith('GB')) limitBytes = parseFloat(tStr) * 1024 * 1024 * 1024;
-    else if (tStr.endsWith('MB')) limitBytes = parseFloat(tStr) * 1024 * 1024;
-    else limitBytes = safeNum(trafficLimit, 0);
-
+  if (limitBytes > 0) {
     const monthlyUsed = safeNum(server.net_rx_monthly) + safeNum(server.net_tx_monthly);
-    tfPct = limitBytes > 0 ? clamp((monthlyUsed / limitBytes) * 100, 0, 100) : 0;
-    trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${escapeHtml(trafficLimit)} · ${Math.round(tfPct)}%`;
+    const tfPct = clamp((monthlyUsed / limitBytes) * 100, 0, 100);
+    trafficValText = `${fmtBytes(monthlyUsed, 1)} / ${fmtTrafficLimit(server.traffic_limit)} · ${Math.round(tfPct)}%`;
   } else {
     const totalBytes = safeNum(server.net_rx) + safeNum(server.net_tx);
     trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
@@ -989,16 +1002,13 @@ function renderServerCard(server) {
           <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
         </div>
 
-        <!-- 流量 (内嵌式微进度条) -->
+        <!-- 流量 (纯文本自动换算TB) -->
         <div class="card-info-row">
           <span class="info-label">
             <svg class="row-icon" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
             ${t('traffic')}
           </span>
-          <div class="traffic-val-box">
-            ${limitBytes > 0 ? `<div class="traffic-mini-bar"><div class="traffic-mini-fill" style="width: ${tfPct}%"></div></div>` : ''}
-            <span class="info-val">${trafficValText}</span>
-          </div>
+          <span class="info-val">${trafficValText}</span>
         </div>
 
         <!-- 活跃: 在线XX天余XX天 -->
@@ -1797,8 +1807,7 @@ async function loadServerDetailData(serverId) {
     state.detailHistory = Array.isArray(historyData) ? historyData : [];
 
     renderDetailPage();
-  } catch (e) {
-    console.error('Failed to load server detail, falling back to mock:', e);
+  } catch {
     const server = state.serversMap.get(serverId) || state.servers[0];
     if (server) {
       state.detailServer = server;
@@ -1810,8 +1819,11 @@ async function loadServerDetailData(serverId) {
 
 async function loadInitialData() {
   try {
-    state.config = await request('/api/config');
-    if (state.config.site_title) {
+    const res = await fetch(`${API_BASE}/api/config`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    state.config = await res.json();
+
+    if (state.config?.site_title) {
       document.title = state.config.site_title;
       const titleEl = document.getElementById('site-title-text');
       if (titleEl) titleEl.textContent = state.config.site_title;
@@ -1834,8 +1846,8 @@ async function loadInitialData() {
     handleRouteChange();
     initWebSocket();
     startPollingWatchdog();
-  } catch (e) {
-    console.warn('API connection failed or local preview mode detected. Enabling demo mock data...', e);
+  } catch {
+    // 纯静态本地预览环境或无后端服务时，静默启用本地演示数据，控制台干净无报错
     state.isDemoMode = true;
 
     const demo = generateDemoData();
