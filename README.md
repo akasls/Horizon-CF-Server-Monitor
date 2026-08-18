@@ -125,6 +125,16 @@ Horizon-CF-Server-Monitor/
 
 ---
 
+## 📝 更新日志 (Changelog)
+
+详细版本演进与改动说明请参阅 [CHANGELOG.md](CHANGELOG.md)。
+
+- **v1.1.0** (2026-08-18): 移动端交互与滑动导航重构、主题扩散动效丝滑度调优、小鸡残值与机架图标优化、速率智能整数化与流量无效尾数裁剪、新增悬浮返回顶部与定制时间筛选下拉组件。
+- **v1.0.0** (2026-08-17): 初始版本发布，支持完整探针指标、原生 SVG 图表、WebSocket 实时推送与残值折算。
+
+---
+
 ## 📄 开源许可 (License)
 
 本项目基于 [MIT License](LICENSE) 开源。欢迎 Star、Fork 与提交 Pull Request！
+

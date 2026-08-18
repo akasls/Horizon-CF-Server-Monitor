@@ -7,8 +7,8 @@
 const I18N = {
   'zh-CN': {
     siteTitle: 'Horizon 监控面板',
-    fleetWorth: '小鸡价值',
-    fleetWorthSub: '共 {count} 台 · 剩余折合 ¥ {rem}',
+    fleetWorth: '小鸡残值',
+    fleetWorthSub: '总价值 ¥ {total} · ¥ {monthly}/月',
     onlineNodes: '当前在线',
     onlineRatio: '在线率 {pct}% · 共 {total} 台',
     totalTraffic: '流量数据',
@@ -84,7 +84,7 @@ const I18N = {
   'en-US': {
     siteTitle: 'Horizon Monitor',
     fleetWorth: 'Fleet Valuation',
-    fleetWorthSub: '{count} nodes · Remaining ¥ {rem}',
+    fleetWorthSub: 'Total ¥ {total} · ¥ {monthly}/mo',
     onlineNodes: 'Online Nodes',
     onlineRatio: '{pct}% online · {total} total',
     totalTraffic: 'Total Traffic',
@@ -223,12 +223,22 @@ function fmtBytes(n, digits = 1) {
     val /= 1024;
     i++;
   }
-  const text = i === 0 ? String(Math.round(val)) : val.toFixed(digits);
+  const text = i === 0 ? String(Math.round(val)) : String(parseFloat(val.toFixed(digits)));
   return `${v < 0 ? '-' : ''}${text} ${BYTE_UNITS[i]}`;
 }
 
 function fmtSpeed(n) {
-  return fmtBytes(n, 1) + '/s';
+  const v = safeNum(n, 0);
+  if (v === 0) return '0 B/s';
+  let val = Math.abs(v);
+  let i = 0;
+  while (val >= 1024 && i < BYTE_UNITS.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  const digits = (i <= 2) ? 0 : 1;
+  const text = digits === 0 ? String(Math.round(val)) : String(parseFloat(val.toFixed(digits)));
+  return `${v < 0 ? '-' : ''}${text} ${BYTE_UNITS[i]}/s`;
 }
 
 function fmtMB(mb, digits = 1) {
@@ -284,14 +294,14 @@ function fmtTrafficLimit(val) {
   return fmtBytes(bytes, 1);
 }
 
-// 紧凑且精准的 RAM/Disk 详情格式 (例如 2.0G / 3.8G)
+// 紧凑且精准的 RAM/Disk 详情格式 (例如 2G / 3.8G)
 function fmtSizeDetail(usedMB, totalMB) {
   const u = safeNum(usedMB, 0);
   const t = safeNum(totalMB, 0);
   if (!t) return '--';
   if (t >= 1024) {
-    const uG = (u / 1024).toFixed(1);
-    const tG = (t / 1024).toFixed(1);
+    const uG = String(parseFloat((u / 1024).toFixed(1)));
+    const tG = String(parseFloat((t / 1024).toFixed(1)));
     return `${uG}G / ${tG}G`;
   }
   return `${Math.round(u)}M / ${Math.round(t)}M`;
@@ -659,14 +669,18 @@ function computeRemainingWorth(server) {
 function summarizeFleetWorth(servers) {
   let totalMonthlyCny = 0;
   let totalRemainingCny = 0;
+  let totalPurchaseCny = 0;
   let hasPriceCount = 0;
   const cnyRate = state.fxRates.rates.CNY || 7.8;
 
   for (const s of servers) {
     const p = safeNum(s.price, 0);
     if (p > 0) {
-      const monthly = computeServerMonthlyCost(s);
       const curRate = resolveCurrencyRate(s.currency);
+      const eurPrice = p / curRate;
+      totalPurchaseCny += eurPrice * cnyRate;
+
+      const monthly = computeServerMonthlyCost(s);
       const eurVal = monthly / curRate;
       totalMonthlyCny += eurVal * cnyRate;
 
@@ -678,7 +692,7 @@ function summarizeFleetWorth(servers) {
       hasPriceCount++;
     }
   }
-  return { totalMonthlyCny, totalRemainingCny, hasPriceCount };
+  return { totalMonthlyCny, totalRemainingCny, totalPurchaseCny, hasPriceCount };
 }
 
 // ==================== 7. 原生 SVG 图表渲染引擎 ====================
@@ -777,24 +791,30 @@ function renderGlobalStats() {
 
   const { total, online, globalSpeedIn, globalSpeedOut, globalNetTx, globalNetRx } = state.stats;
   const onlinePct = total > 0 ? Math.round((online / total) * 100) : 0;
-  const { totalMonthlyCny, totalRemainingCny, hasPriceCount } = summarizeFleetWorth(state.servers);
+  const { totalMonthlyCny, totalRemainingCny, totalPurchaseCny } = summarizeFleetWorth(state.servers);
 
   const cardsHtml = `
-    <!-- 小鸡价值 (显示月折合与完整剩余价值) -->
+    <!-- 小鸡价值 (上面显示剩余价值，下面显示总价值与每个月花费) -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('fleetWorth')}</span>
         <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
       </div>
-      <div class="stat-box__value">¥ ${Math.round(totalMonthlyCny)}<span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:4px;">/月</span></div>
-      <div class="stat-box__sub">${t('fleetWorthSub', { count: hasPriceCount, rem: Math.round(totalRemainingCny) })}</div>
+      <div class="stat-box__value">¥ ${Math.round(totalRemainingCny)}</div>
+      <div class="stat-box__sub">${t('fleetWorthSub', { total: Math.round(totalPurchaseCny), monthly: Math.round(totalMonthlyCny) })}</div>
     </article>
 
     <!-- 当前在线 -->
     <article class="stat-box">
       <div class="stat-box__title">
         <span>${t('onlineNodes')}</span>
-        <span class="metric-icon"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        <span class="metric-icon">
+          <svg viewBox="0 0 24 24">
+            <rect width="20" height="8" x="2" y="3" rx="2"/><rect width="20" height="8" x="2" y="13" rx="2"/>
+            <line x1="6" x2="6.01" y1="7" y2="7"/><line x1="6" x2="6.01" y1="17" y2="17"/>
+            <circle cx="17" cy="7" r="1" fill="currentColor"/><circle cx="17" cy="17" r="1" fill="currentColor"/>
+          </svg>
+        </span>
       </div>
       <div class="stat-box__value">${online} / ${total}</div>
       <div class="stat-box__sub">${t('onlineRatio', { pct: onlinePct, total })}</div>
@@ -1225,7 +1245,7 @@ function renderActiveDetailChart(server) {
     </span>
   `).join('<span class="chart-nav-sep">|</span>');
 
-  // 右上角时间跨度下拉框
+  // 右上角时间跨度自定义下拉组件
   const hoursOptions = [
     { h: 1, label: t('h1') },
     { h: 6, label: t('h6') },
@@ -1234,7 +1254,28 @@ function renderActiveDetailChart(server) {
     { h: 48, label: t('h48') },
     { h: 96, label: t('h96') },
     { h: 168, label: t('h168') }
-  ].map(opt => `<option value="${opt.h}" ${state.detailHours === opt.h ? 'selected' : ''}>${opt.label}</option>`).join('');
+  ];
+
+  const activeHourObj = hoursOptions.find(opt => opt.h === state.detailHours) || hoursOptions[3];
+
+  const dropdownItemsHtml = hoursOptions.map(opt => `
+    <div class="custom-dropdown__item ${state.detailHours === opt.h ? 'is-selected' : ''}" data-hour="${opt.h}">
+      <span>${opt.label}</span>
+      ${state.detailHours === opt.h ? '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 5 5L20 7"/></svg>' : ''}
+    </div>
+  `).join('');
+
+  const customSelectHtml = `
+    <div class="custom-dropdown" id="detail-hour-dropdown">
+      <button class="custom-dropdown__trigger" id="detail-hour-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" title="切换时间范围">
+        <span class="custom-dropdown__label">${activeHourObj.label}</span>
+        <svg class="custom-dropdown__chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="custom-dropdown__menu" id="detail-hour-menu" role="listbox">
+        ${dropdownItemsHtml}
+      </div>
+    </div>
+  `;
 
   let svgHtml = '';
   let legendHtml = '';
@@ -1269,8 +1310,8 @@ function renderActiveDetailChart(server) {
 
     legendHtml = `
       <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('cpu') ? 'is-disabled' : ''}" data-key="cpu"><span class="legend-dot"></span>CPU 利用率</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('ram') ? 'is-disabled' : ''}" data-key="ram"><span class="legend-dot" style="background:var(--success)"></span>RAM 内存利用率</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cpu') ? 'is-disabled' : ''}" data-key="cpu"><span class="legend-dot"></span>CPU</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('ram') ? 'is-disabled' : ''}" data-key="ram"><span class="legend-dot" style="background:var(--success)"></span>RAM</span>
       </div>
     `;
   } else if (state.detailTab === 'network') {
@@ -1299,8 +1340,8 @@ function renderActiveDetailChart(server) {
 
     legendHtml = `
       <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('net_in') ? 'is-disabled' : ''}" data-key="net_in"><span class="legend-dot"></span>${t('speedIn')}</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('net_out') ? 'is-disabled' : ''}" data-key="net_out"><span class="legend-dot" style="background:var(--success)"></span>${t('speedOut')}</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('net_in') ? 'is-disabled' : ''}" data-key="net_in"><span class="legend-dot"></span>下行</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('net_out') ? 'is-disabled' : ''}" data-key="net_out"><span class="legend-dot" style="background:var(--success)"></span>上行</span>
       </div>
     `;
   } else if (state.detailTab === 'ping') {
@@ -1317,10 +1358,10 @@ function renderActiveDetailChart(server) {
 
     legendHtml = `
       <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>中国电信</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>中国联通</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>中国移动</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>BGP / 全球</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>电信</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>联通</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>移动</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>BGP</span>
       </div>
     `;
   } else if (state.detailTab === 'disk') {
@@ -1333,10 +1374,14 @@ function renderActiveDetailChart(server) {
       xLabels
     });
 
+    const latestRead = readSeries.values[readSeries.values.length - 1] || 0;
+    const latestWrite = writeSeries.values[writeSeries.values.length - 1] || 0;
+    summaryText = `读: ${fmtBytes(latestRead)}/s · 写: ${fmtBytes(latestWrite)}/s`;
+
     legendHtml = `
       <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('read_bps') ? 'is-disabled' : ''}" data-key="read_bps"><span class="legend-dot"></span>磁盘读取速率</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('write_bps') ? 'is-disabled' : ''}" data-key="write_bps"><span class="legend-dot" style="background:var(--success)"></span>磁盘写入速率</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('read_bps') ? 'is-disabled' : ''}" data-key="read_bps"><span class="legend-dot"></span>读</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('write_bps') ? 'is-disabled' : ''}" data-key="write_bps"><span class="legend-dot" style="background:var(--success)"></span>写</span>
       </div>
     `;
   }
@@ -1348,14 +1393,14 @@ function renderActiveDetailChart(server) {
           ${navTabsHtml}
         </div>
         <div class="chart-header-right">
-          ${summaryText ? `<span class="chart-val-summary">${summaryText}</span>` : ''}
-          <select id="detail-hour-select" class="hour-select">
-            ${hoursOptions}
-          </select>
+          ${customSelectHtml}
         </div>
       </div>
       ${svgHtml}
-      ${legendHtml}
+      <div class="chart-card-footer">
+        ${legendHtml}
+        ${summaryText ? `<span class="chart-val-summary">${summaryText}</span>` : ''}
+      </div>
     </article>
   `;
 }
@@ -1438,10 +1483,11 @@ function cycleAppearance(event) {
     }
   }
 
+  // 终点半径外扩 32px，确保对角线边缘彻底覆盖无任何死角
   const endRadius = Math.hypot(
     Math.max(x, window.innerWidth - x),
     Math.max(y, window.innerHeight - y)
-  );
+  ) + 32;
 
   const transition = document.startViewTransition(() => {
     updateThemeDOM();
@@ -1458,8 +1504,9 @@ function cycleAppearance(event) {
         clipPath: clipPath
       },
       {
-        duration: 480,
-        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        duration: 380,
+        easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        fill: 'forwards',
         pseudoElement: '::view-transition-new(root)'
       }
     );
@@ -1992,11 +2039,47 @@ function bindEvents() {
     cycleAppearance(e);
   });
 
+  const groupBar = document.getElementById('group-bar');
+  const btnSearchToggle = document.getElementById('btn-search-toggle');
+  const btnSearchClose = document.getElementById('btn-search-close');
   const searchInput = document.getElementById('search-input');
+  const searchBox = document.getElementById('search-box');
+
+  if (btnSearchToggle && groupBar && searchInput) {
+    btnSearchToggle.addEventListener('click', () => {
+      groupBar.classList.add('is-search-open');
+      searchInput.focus();
+    });
+  }
+
+  if (btnSearchClose && groupBar && searchInput) {
+    btnSearchClose.addEventListener('click', () => {
+      groupBar.classList.remove('is-search-open');
+      searchInput.value = '';
+      if (searchBox) searchBox.classList.remove('has-value');
+      state.searchQuery = '';
+      renderServersGrid();
+    });
+  }
+
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
+      if (searchBox) {
+        if (state.searchQuery) searchBox.classList.add('has-value');
+        else searchBox.classList.remove('has-value');
+      }
       renderServersGrid();
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (groupBar) groupBar.classList.remove('is-search-open');
+        searchInput.value = '';
+        if (searchBox) searchBox.classList.remove('has-value');
+        state.searchQuery = '';
+        renderServersGrid();
+      }
     });
   }
 
@@ -2008,8 +2091,8 @@ function bindEvents() {
     renderServersGrid();
   });
 
-  // 详情页图表导航点击
-  document.getElementById('detail-charts-container')?.addEventListener('click', (e) => {
+  // 详情页图表导航、图例过滤与自定义时间下拉框事件
+  document.getElementById('detail-charts-container')?.addEventListener('click', async (e) => {
     const navLink = e.target.closest('.chart-nav-link');
     if (navLink && navLink.dataset.tab) {
       state.detailTab = navLink.dataset.tab;
@@ -2023,13 +2106,26 @@ function bindEvents() {
       if (state.detailHiddenSeries.has(key)) state.detailHiddenSeries.delete(key);
       else state.detailHiddenSeries.add(key);
       if (state.detailServer) renderActiveDetailChart(state.detailServer);
+      return;
     }
-  });
 
-  // 详情页时间下拉框切换
-  document.getElementById('detail-charts-container')?.addEventListener('change', async (e) => {
-    if (e.target && e.target.id === 'detail-hour-select') {
-      state.detailHours = parseInt(e.target.value, 10);
+    const trigger = e.target.closest('#detail-hour-trigger');
+    const dropdown = e.target.closest('#detail-hour-dropdown');
+    if (trigger && dropdown) {
+      e.stopPropagation();
+      dropdown.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', dropdown.classList.contains('is-open'));
+      return;
+    }
+
+    const item = e.target.closest('.custom-dropdown__item');
+    if (item && item.dataset.hour) {
+      e.stopPropagation();
+      const h = parseInt(item.dataset.hour, 10);
+      state.detailHours = h;
+      const dd = item.closest('.custom-dropdown');
+      if (dd) dd.classList.remove('is-open');
+
       if (state.currentRoute.serverId) {
         if (state.isDemoMode) {
           state.detailHistory = generateMockHistory(state.detailServer, state.detailHours);
@@ -2042,8 +2138,38 @@ function bindEvents() {
           } catch {}
         }
       }
+      return;
     }
   });
+
+  // 全局点击/按键关闭自定义下拉框
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-dropdown')) {
+      document.querySelectorAll('.custom-dropdown.is-open').forEach(el => el.classList.remove('is-open'));
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.custom-dropdown.is-open').forEach(el => el.classList.remove('is-open'));
+    }
+  });
+
+  // 返回顶部悬浮按钮 (滚动超过一屏显示)
+  const btnBackToTop = document.getElementById('btn-back-to-top');
+  if (btnBackToTop) {
+    btnBackToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > window.innerHeight) {
+        btnBackToTop.classList.add('is-visible');
+      } else {
+        btnBackToTop.classList.remove('is-visible');
+      }
+    }, { passive: true });
+  }
 
   const tooltipRoot = document.getElementById('tooltip-root');
   let activeTooltip = null;

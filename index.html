@@ -52,10 +52,16 @@
             <div class="group-text-links" id="group-links"></div>
           </div>
 
-          <div class="group-actions">
-            <div class="search-box search-box--inline">
+          <div class="group-actions" id="group-actions">
+            <button id="btn-search-toggle" class="search-toggle-btn" type="button" aria-label="展开搜索" title="搜索">
+              <svg viewBox="0 0 24 24" class="icon-svg"><path d="m21 21-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg>
+            </button>
+            <div class="search-box search-box--inline" id="search-box">
               <span class="search-box__icon"></span>
               <input id="search-input" type="search" placeholder="搜索节点、分组、系统或地区" autocomplete="off" spellcheck="false">
+              <button id="btn-search-close" class="search-close-btn" type="button" aria-label="关闭搜索" title="关闭搜索">
+                <svg viewBox="0 0 24 24" class="icon-svg"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -93,6 +99,11 @@
       </div>
     </footer>
   </div>
+
+  <!-- 返回顶部悬浮按钮 -->
+  <button id="btn-back-to-top" class="back-to-top-btn" type="button" aria-label="返回顶部" title="返回顶部">
+    <svg viewBox="0 0 24 24" class="icon-svg"><path d="m18 15-6-6-6 6"/></svg>
+  </button>
 
   <!-- 浮层与弹窗容器（Turnstile 验证等） -->
   <div id="overlay-root"></div>
