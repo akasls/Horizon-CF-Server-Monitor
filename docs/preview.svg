@@ -1,0 +1,153 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" rx="24" fill="#07111f"/>
+  <circle cx="200" cy="100" r="300" fill="url(#glow-blue)" opacity="0.4"/>
+  <circle cx="1000" cy="500" r="350" fill="url(#glow-emerald)" opacity="0.3"/>
+
+  <!-- Top Navbar Preview -->
+  <rect x="40" y="30" width="1120" height="60" rx="12" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+  <rect x="60" y="44" width="32" height="32" rx="8" fill="url(#logo-grad)"/>
+  <text x="105" y="65" fill="#eef4ff" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="800">Horizon Monitor</text>
+  <rect x="1040" y="44" width="32" height="32" rx="8" fill="#121e34" stroke="#1f2e4d"/>
+  <rect x="1085" y="44" width="32" height="32" rx="8" fill="#121e34" stroke="#1f2e4d"/>
+
+  <!-- 4 Global Stats Boxes -->
+  <g transform="translate(40, 110)">
+    <!-- Fleet Worth -->
+    <rect x="0" y="0" width="262" height="100" rx="12" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="20" y="32" fill="#b7c6df" font-family="system-ui" font-size="13" font-weight="600">小鸡价值</text>
+    <text x="20" y="68" fill="#eef4ff" font-family="system-ui" font-size="24" font-weight="800">¥ 1,420.00</text>
+    <text x="20" y="88" fill="#7f93b2" font-family="system-ui" font-size="11">共 12 台节点 · 汇率折算</text>
+
+    <!-- Online Nodes -->
+    <rect x="286" y="0" width="262" height="100" rx="12" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="306" y="32" fill="#b7c6df" font-family="system-ui" font-size="13" font-weight="600">当前在线</text>
+    <text x="306" y="68" fill="#4ade80" font-family="system-ui" font-size="24" font-weight="800">12 / 12</text>
+    <text x="306" y="88" fill="#7f93b2" font-family="system-ui" font-size="11">在线率 100% · 运行良好</text>
+
+    <!-- Traffic -->
+    <rect x="572" y="0" width="262" height="100" rx="12" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="592" y="32" fill="#b7c6df" font-family="system-ui" font-size="13" font-weight="600">流量数据</text>
+    <text x="592" y="68" fill="#eef4ff" font-family="system-ui" font-size="24" font-weight="800">3.82 TB</text>
+    <text x="592" y="88" fill="#7f93b2" font-family="system-ui" font-size="11">下行 2.4 TB · 上行 1.4 TB</text>
+
+    <!-- Speed -->
+    <rect x="858" y="0" width="262" height="100" rx="12" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="878" y="32" fill="#b7c6df" font-family="system-ui" font-size="13" font-weight="600">网络速率</text>
+    <text x="878" y="68" fill="#8ea4ff" font-family="system-ui" font-size="24" font-weight="800">↓ 42.5 MB/s</text>
+    <text x="878" y="88" fill="#4ade80" font-family="system-ui" font-size="11">↑ 18.2 MB/s</text>
+  </g>
+
+  <!-- Server Cards -->
+  <g transform="translate(40, 230)">
+    <!-- Card 1 (HK BGP) -->
+    <rect x="0" y="0" width="355" height="360" rx="14" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="24" y="40" fill="#eef4ff" font-family="system-ui" font-size="16" font-weight="800">🇭🇰 HK-BGP-01</text>
+    <text x="24" y="62" fill="#7f93b2" font-family="system-ui" font-size="12">Ubuntu 22.04 · v4 · v6 · 42天 18时</text>
+    <rect x="270" y="24" width="60" height="24" rx="12" fill="#38a169"/>
+    <text x="287" y="40" fill="#ffffff" font-family="system-ui" font-size="11" font-weight="700">在线</text>
+
+    <!-- Dials -->
+    <circle cx="65" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="65" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="130" stroke-linecap="round" fill="none"/>
+    <text x="65" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">18%</text>
+    <text x="65" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">CPU (4核)</text>
+
+    <circle cx="177" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="177" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="95" stroke-linecap="round" fill="none"/>
+    <text x="177" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">42%</text>
+    <text x="177" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">RAM (8GB)</text>
+
+    <circle cx="290" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="290" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="118" stroke-linecap="round" fill="none"/>
+    <text x="290" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">28%</text>
+    <text x="290" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">Disk (120GB)</text>
+
+    <!-- Metrics -->
+    <line x1="24" y1="180" x2="331" y2="180" stroke="#1f2e4d"/>
+    <text x="24" y="205" fill="#b7c6df" font-family="system-ui" font-size="12" font-weight="600">网络速率</text>
+    <text x="331" y="205" fill="#4ade80" font-family="system-ui" font-size="12" font-weight="700" text-anchor="end">↑ 12.4 MB/s  ↓ 28.1 MB/s</text>
+
+    <text x="24" y="238" fill="#b7c6df" font-family="system-ui" font-size="12" font-weight="600">延迟检测</text>
+    <rect x="145" y="224" width="56" height="20" rx="4" fill="#121e34" stroke="#1f2e4d"/>
+    <text x="173" y="238" fill="#4ade80" font-family="system-ui" font-size="10" text-anchor="middle">电信 18ms</text>
+    <rect x="208" y="224" width="56" height="20" rx="4" fill="#121e34" stroke="#1f2e4d"/>
+    <text x="236" y="238" fill="#4ade80" font-family="system-ui" font-size="10" text-anchor="middle">联通 24ms</text>
+    <rect x="271" y="224" width="56" height="20" rx="4" fill="#121e34" stroke="#1f2e4d"/>
+    <text x="299" y="238" fill="#4ade80" font-family="system-ui" font-size="10" text-anchor="middle">移动 22ms</text>
+
+    <!-- Traffic -->
+    <text x="24" y="272" fill="#b7c6df" font-family="system-ui" font-size="12" font-weight="600">本月流量</text>
+    <text x="331" y="272" fill="#7f93b2" font-family="system-ui" font-size="11" text-anchor="end">480 GB / 1000 GB (48%)</text>
+    <rect x="24" y="284" width="307" height="6" rx="3" fill="#1f2e4d"/>
+    <rect x="24" y="284" width="147" height="6" rx="3" fill="#8ea4ff"/>
+
+    <!-- Tags & Worth -->
+    <rect x="24" y="312" width="76" height="24" rx="12" fill="rgba(142, 164, 255, 0.15)" stroke="rgba(142, 164, 255, 0.3)"/>
+    <text x="62" y="328" fill="#8ea4ff" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">¥38.00/月</text>
+    <rect x="108" y="312" width="60" height="24" rx="12" fill="rgba(251, 191, 36, 0.15)" stroke="rgba(251, 191, 36, 0.3)"/>
+    <text x="138" y="328" fill="#fbbf24" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">余 210 天</text>
+    <rect x="235" y="312" width="96" height="24" rx="12" fill="rgba(74, 222, 128, 0.15)" stroke="rgba(74, 222, 128, 0.3)"/>
+    <text x="283" y="328" fill="#4ade80" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">剩余: ¥266.00</text>
+
+    <!-- Card 2 (JP Tokyo) -->
+    <rect x="382" y="0" width="355" height="360" rx="14" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="406" y="40" fill="#eef4ff" font-family="system-ui" font-size="16" font-weight="800">🇯🇵 JP-TYO-02</text>
+    <text x="406" y="62" fill="#7f93b2" font-family="system-ui" font-size="12">Debian 12 · v4 · v6 · 18天 04时</text>
+    <rect x="652" y="24" width="60" height="24" rx="12" fill="#38a169"/>
+    <text x="669" y="40" fill="#ffffff" font-family="system-ui" font-size="11" font-weight="700">在线</text>
+
+    <circle cx="447" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="447" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="145" stroke-linecap="round" fill="none"/>
+    <text x="447" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">9%</text>
+    <text x="447" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">CPU (2核)</text>
+
+    <circle cx="559" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="559" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="110" stroke-linecap="round" fill="none"/>
+    <text x="559" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">32%</text>
+    <text x="559" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">RAM (4GB)</text>
+
+    <circle cx="672" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="672" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="130" stroke-linecap="round" fill="none"/>
+    <text x="672" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">20%</text>
+    <text x="672" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">Disk (60GB)</text>
+
+    <!-- Card 3 (US LAX) -->
+    <rect x="765" y="0" width="355" height="360" rx="14" fill="#0c1526" stroke="#1f2e4d" stroke-width="1.5"/>
+    <text x="789" y="40" fill="#eef4ff" font-family="system-ui" font-size="16" font-weight="800">🇺🇸 US-LAX-03</text>
+    <text x="789" y="62" fill="#7f93b2" font-family="system-ui" font-size="12">Alpine Linux · v4 · v6 · 95天 12时</text>
+    <rect x="1035" y="24" width="60" height="24" rx="12" fill="#38a169"/>
+    <text x="1052" y="40" fill="#ffffff" font-family="system-ui" font-size="11" font-weight="700">在线</text>
+
+    <circle cx="830" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="830" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="120" stroke-linecap="round" fill="none"/>
+    <text x="830" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">25%</text>
+    <text x="830" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">CPU (8核)</text>
+
+    <circle cx="942" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="942" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="75" stroke-linecap="round" fill="none"/>
+    <text x="942" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">54%</text>
+    <text x="942" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">RAM (16GB)</text>
+
+    <circle cx="1055" cy="115" r="26" stroke="#1f2e4d" stroke-width="5" fill="none"/>
+    <circle cx="1055" cy="115" r="26" stroke="#8ea4ff" stroke-width="5" stroke-dasharray="163" stroke-dashoffset="90" stroke-linecap="round" fill="none"/>
+    <text x="1055" y="119" fill="#eef4ff" font-family="system-ui" font-size="12" font-weight="800" text-anchor="middle">45%</text>
+    <text x="1055" y="155" fill="#b7c6df" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">Disk (250GB)</text>
+  </g>
+
+  <!-- Definitions -->
+  <defs>
+    <radialGradient id="glow-blue" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(200 100) rotate(90) scale(300)">
+      <stop stop-color="#5a67d8"/>
+      <stop offset="1" stop-color="#5a67d8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-emerald" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1000 500) rotate(90) scale(350)">
+      <stop stop-color="#38a169"/>
+      <stop offset="1" stop-color="#38a169" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366f1"/>
+      <stop offset="1" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+</svg>
