@@ -1,0 +1,49 @@
+name: Deploy Build Branch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Push static assets to build branch
+        run: |
+          VERSION=$(jq -r '.version // "latest"' theme.json 2>/dev/null || echo "latest")
+
+          # 创建临时构建目录并收集静态产物
+          mkdir -p /tmp/dist-build
+          cp -r index.html theme.json assets docs README.md LICENSE /tmp/dist-build/ 2>/dev/null || true
+          [ -f preview.png ] && cp preview.png /tmp/dist-build/ || true
+
+          # 配置 Git 身份
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 检出或创建 build 分支工作树
+          if git ls-remote --exit-code --heads origin build; then
+            git fetch origin build:refs/remotes/origin/build
+            git worktree add -B build /tmp/build-branch origin/build
+          else
+            git worktree add --detach /tmp/build-branch
+            cd /tmp/build-branch
+            git switch --orphan build
+          fi
+
+          # 清理旧文件并放入最新静态产物
+          cd /tmp/build-branch
+          git rm -rf --ignore-unmatch .
+          cp -r /tmp/dist-build/. .
+
+          # 提交并推送到 build 分支
+          git add -A
+          git commit --allow-empty -m "chore: release static theme for v${VERSION}"
+          git push origin build

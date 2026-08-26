@@ -256,11 +256,6 @@ button {
   justify-content: space-between;
   text-align: left;
   gap: 0.45rem;
-  transition: border-color 0.15s ease;
-}
-
-.stat-box:hover {
-  border-color: var(--border-hover);
 }
 
 .stat-box__title {
