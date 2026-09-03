@@ -789,7 +789,12 @@ function renderGlobalStats() {
   const root = document.getElementById('global-stats');
   if (!root) return;
 
-  const { total, online, globalSpeedIn, globalSpeedOut, globalNetTx, globalNetRx } = state.stats;
+  const total = safeNum(state.stats?.total, 0);
+  const online = safeNum(state.stats?.online, 0);
+  const globalSpeedIn = safeNum(state.stats?.globalSpeedIn, 0);
+  const globalSpeedOut = safeNum(state.stats?.globalSpeedOut, 0);
+  const globalNetTx = safeNum(state.stats?.globalNetTx, 0);
+  const globalNetRx = safeNum(state.stats?.globalNetRx, 0);
   const onlinePct = total > 0 ? Math.round((online / total) * 100) : 0;
   const { totalMonthlyCny, totalRemainingCny, totalPurchaseCny } = summarizeFleetWorth(state.servers);
 
@@ -911,9 +916,67 @@ function filteredServers() {
   return list;
 }
 
-function renderServersGrid() {
+function renderStatusNotice({ type = 'info', title, desc, actionText, actionHref, onAction } = {}) {
   const grid = document.getElementById('servers-grid');
   const emptyState = document.getElementById('empty-state');
+  const emptyIcon = document.getElementById('empty-icon');
+  const emptyTitle = document.getElementById('empty-title');
+  const emptyDesc = document.getElementById('empty-desc');
+  const emptyAction = document.getElementById('empty-action');
+  if (!emptyState) return;
+
+  if (grid) grid.innerHTML = '';
+
+  let iconSvg = '';
+  if (type === 'auth') {
+    iconSvg = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  } else if (type === 'security') {
+    iconSvg = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+  } else if (type === 'warning') {
+    iconSvg = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  } else if (type === 'empty') {
+    iconSvg = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="20" height="8" x="2" y="3" rx="2"/><rect width="20" height="8" x="2" y="13" rx="2"/><line x1="6" x2="6.01" y1="7" y2="7"/><line x1="6" x2="6.01" y1="17" y2="17"/></svg>';
+  } else {
+    iconSvg = '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>';
+  }
+
+  if (emptyIcon) emptyIcon.innerHTML = iconSvg;
+  if (emptyTitle) emptyTitle.textContent = title || t('emptyTitle');
+  if (emptyDesc) emptyDesc.textContent = desc || t('emptyDesc');
+
+  if (emptyAction) {
+    if (actionText) {
+      emptyAction.classList.remove('hidden');
+      if (actionHref) {
+        emptyAction.innerHTML = `<a href="${actionHref}" class="btn-action-primary" target="_blank" rel="noopener noreferrer">${actionText}</a>`;
+      } else {
+        emptyAction.innerHTML = `<button type="button" class="btn-action-primary" id="btn-status-action">${actionText}</button>`;
+        const btn = emptyAction.querySelector('#btn-status-action');
+        if (btn && typeof onAction === 'function') {
+          btn.addEventListener('click', onAction);
+        }
+      }
+    } else {
+      emptyAction.classList.add('hidden');
+      emptyAction.innerHTML = '';
+    }
+  }
+
+  emptyState.classList.remove('hidden');
+}
+
+function hideStatusNotice() {
+  const emptyState = document.getElementById('empty-state');
+  const emptyAction = document.getElementById('empty-action');
+  if (emptyState) emptyState.classList.add('hidden');
+  if (emptyAction) {
+    emptyAction.classList.add('hidden');
+    emptyAction.innerHTML = '';
+  }
+}
+
+function renderServersGrid() {
+  const grid = document.getElementById('servers-grid');
   if (!grid) return;
 
   grid.className = 'card-grid';
@@ -921,11 +984,25 @@ function renderServersGrid() {
 
   if (list.length === 0) {
     grid.innerHTML = '';
-    if (emptyState) emptyState.classList.remove('hidden');
+    if (state.servers.length === 0) {
+      renderStatusNotice({
+        type: 'empty',
+        title: '暂无在线服务器',
+        desc: '当前探针尚未添加或上报任何服务器节点，请在管理后台添加。',
+        actionText: '管理后台',
+        actionHref: '/admin#admin'
+      });
+    } else {
+      renderStatusNotice({
+        type: 'search',
+        title: t('emptyTitle'),
+        desc: t('emptyDesc')
+      });
+    }
     return;
   }
-  if (emptyState) emptyState.classList.add('hidden');
 
+  hideStatusNotice();
   grid.innerHTML = list.map(server => renderServerCard(server)).join('');
 }
 
@@ -1892,11 +1969,72 @@ async function loadServerDetailData(serverId) {
   }
 }
 
+function shouldEnableDemoMode() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('demo') === '1' || window.location.hash === '#demo') {
+    return true;
+  }
+  const isLocalFile = window.location.protocol === 'file:';
+  const hasApiBaseMeta = !!document.querySelector('meta[name="apiBase"]')?.content;
+  if (isLocalFile && !hasApiBaseMeta && !window.__API_BASE__) {
+    return true;
+  }
+  return false;
+}
+
+function enableDemoMode() {
+  state.isDemoMode = true;
+
+  const demo = generateDemoData();
+  state.config = demo.config;
+  state.servers = demo.servers;
+  state.serversMap = new Map(state.servers.map(s => [s.id, s]));
+  state.stats = demo.stats;
+
+  if (state.config?.site_title) {
+    document.title = state.config.site_title;
+    const titleEl = document.getElementById('site-title-text');
+    if (titleEl) titleEl.textContent = state.config.site_title;
+  }
+
+  applyAppearance();
+  loadExchangeRates().then(() => {
+    renderGlobalStats();
+    renderServersGrid();
+  });
+
+  handleRouteChange();
+  updateConnectionState('open');
+  startDemoTick();
+}
+
 async function loadInitialData() {
+  if (shouldEnableDemoMode()) {
+    enableDemoMode();
+    return;
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/api/config`, { headers: authHeaders() });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    state.config = await res.json();
+    let configRes;
+    try {
+      configRes = await fetch(`${API_BASE}/api/config`, { headers: authHeaders() });
+    } catch (netErr) {
+      console.error('[Horizon] Failed to fetch /api/config:', netErr);
+      renderStatusNotice({
+        type: 'error',
+        title: '无法连接到监控后端',
+        desc: '请求 /api/config 失败，请检查网络或后端 Worker 运行状态。',
+        actionText: '重新连接',
+        onAction: () => location.reload()
+      });
+      return;
+    }
+
+    if (!configRes.ok) {
+      throw new Error(`HTTP ${configRes.status} on /api/config`);
+    }
+
+    state.config = await configRes.json();
 
     if (state.config?.site_title) {
       document.title = state.config.site_title;
@@ -1906,12 +2044,71 @@ async function loadInitialData() {
 
     applyAppearance();
 
-    const serversData = await request('/api/servers');
-    state.servers = serversData.servers || [];
+    let serversData;
+    try {
+      serversData = await request('/api/servers');
+    } catch (serversErr) {
+      console.error('[Horizon] Failed to fetch /api/servers:', serversErr);
+      const status = serversErr.status;
+
+      // 401: 站点非公开，访客未登录后台
+      if (status === 401 || state.config?.is_public === false) {
+        renderStatusNotice({
+          type: 'auth',
+          title: '私有监控面板',
+          desc: '当前站点已启用访问权限保护，请登录管理后台后查看节点状态。',
+          actionText: '登录管理后台',
+          actionHref: '/admin#admin'
+        });
+        return;
+      }
+
+      // 403: Turnstile 人机安全验证拦截
+      if (status === 403) {
+        renderStatusNotice({
+          type: 'security',
+          title: '人机安全验证',
+          desc: '站点已开启安全防护，请完成验证以查看节点数据。',
+          actionText: '重新验证',
+          onAction: () => {
+            ensureTurnstile()
+              .then(() => loadInitialData())
+              .catch((e) => console.warn('[Horizon] Turnstile retry failed:', e));
+          }
+        });
+        return;
+      }
+
+      // 409: 数据库结构需升级
+      if (status === 409) {
+        renderStatusNotice({
+          type: 'warning',
+          title: '数据库需要升级',
+          desc: '当前探针数据库结构需要更新，请管理员前往后台完成维护。',
+          actionText: '前往管理后台',
+          actionHref: '/admin#admin'
+        });
+        return;
+      }
+
+      // 其他常规报错
+      renderStatusNotice({
+        type: 'error',
+        title: '节点数据载入失败',
+        desc: serversErr.message || '获取服务器列表时发生异常，请稍后重试。',
+        actionText: '点击重试',
+        onAction: () => loadInitialData()
+      });
+      return;
+    }
+
+    state.servers = Array.isArray(serversData?.servers) ? serversData.servers : [];
     state.serversMap = new Map(state.servers.map(s => [s.id, s]));
-    state.stats = serversData.stats || state.stats;
-    state.regionStats = serversData.regionStats || {};
-    state.sysConfig = serversData.sysConfig || {};
+    state.stats = serversData?.stats || state.stats;
+    state.regionStats = serversData?.regionStats || {};
+    state.sysConfig = serversData?.sysConfig || {};
+
+    hideStatusNotice();
 
     loadExchangeRates().then(() => {
       renderGlobalStats();
@@ -1921,26 +2118,15 @@ async function loadInitialData() {
     handleRouteChange();
     initWebSocket();
     startPollingWatchdog();
-  } catch {
-    // 纯静态本地预览环境或无后端服务时，静默启用本地演示数据，控制台干净无报错
-    state.isDemoMode = true;
-
-    const demo = generateDemoData();
-    state.config = demo.config;
-    state.servers = demo.servers;
-    state.serversMap = new Map(state.servers.map(s => [s.id, s]));
-    state.stats = demo.stats;
-
-    applyAppearance();
-    loadExchangeRates().then(() => {
-      renderGlobalStats();
-      renderServersGrid();
+  } catch (err) {
+    console.error('[Horizon] Initialization error:', err);
+    renderStatusNotice({
+      type: 'error',
+      title: '监控系统初始化异常',
+      desc: err.message || '加载页面过程中发生未预期的错误。',
+      actionText: '重新加载',
+      onAction: () => location.reload()
     });
-
-    handleRouteChange();
-    updateConnectionState('open');
-
-    startDemoTick();
   }
 }
 

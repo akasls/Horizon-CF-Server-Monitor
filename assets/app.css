@@ -782,6 +782,35 @@ button {
   color: var(--text-muted);
 }
 
+.empty-state__action {
+  margin-top: 0.85rem;
+}
+
+.btn-action-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 1.15rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.btn-action-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.btn-action-primary:active {
+  transform: translateY(0);
+}
+
 /* Detail View Top Bar */
 .detail-top-bar {
   display: flex;
