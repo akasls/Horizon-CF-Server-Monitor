@@ -69,13 +69,14 @@
         <!-- 节点列表/卡片网格 (一行显示4个) -->
         <div id="servers-grid" class="card-grid"></div>
 
-        <!-- 空数据提示 -->
+        <!-- 空数据提示与状态引导 -->
         <div id="empty-state" class="empty-state hidden">
-          <div class="empty-state__icon">
+          <div class="empty-state__icon" id="empty-icon">
             <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
           </div>
           <div class="empty-state__title" id="empty-title">没有匹配的服务器</div>
           <div class="empty-state__description" id="empty-desc">可以尝试切换分组或修改搜索关键词。</div>
+          <div class="empty-state__action hidden" id="empty-action"></div>
         </div>
       </section>
 
