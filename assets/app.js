@@ -372,6 +372,8 @@ function getAuthToken() {
 
 function loadTurnstileCred() {
   try {
+    const official = localStorage.getItem('turnstile_verified');
+    if (official) return official;
     const raw = localStorage.getItem(CRED_KEY);
     if (!raw) return null;
     const obj = JSON.parse(raw);
@@ -387,6 +389,7 @@ function loadTurnstileCred() {
 
 function saveTurnstileCred(val) {
   try {
+    localStorage.setItem('turnstile_verified', val);
     localStorage.setItem(CRED_KEY, JSON.stringify({ value: val, savedAt: Date.now() }));
   } catch {}
 }
@@ -403,7 +406,7 @@ function authHeaders() {
 async function request(path, options = {}) {
   const url = `${API_BASE}${path}`;
   const headers = { ...authHeaders(), ...(options.headers || {}) };
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, { credentials: 'include', ...options, headers });
   if (res.status === 403 && state.config && state.config.turnstile_enabled && !options._retried) {
     await ensureTurnstile();
     return request(path, { ...options, _retried: true });
@@ -467,6 +470,7 @@ async function ensureTurnstile() {
           callback: async (token) => {
             try {
               const res = await fetch(`${API_BASE}/api/config`, {
+                credentials: 'include',
                 headers: { 'X-Turnstile-Token': token, ...authHeaders() }
               });
               const data = await res.json();
@@ -526,7 +530,12 @@ class MetricSocket {
     if (wsBase.startsWith('https:')) wsBase = wsBase.replace('https:', 'wss:');
     else if (wsBase.startsWith('http:')) wsBase = wsBase.replace('http:', 'ws:');
     else wsBase = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
-    return `${wsBase}/api/ws?subscribe=${encodeURIComponent(this.scope)}`;
+    let url = `${wsBase}/api/ws?subscribe=${encodeURIComponent(this.scope)}`;
+    const token = getAuthToken();
+    if (token) {
+      url += `&token=${encodeURIComponent(token)}`;
+    }
+    return url;
   }
 
   _connect() {
@@ -2017,7 +2026,7 @@ async function loadInitialData() {
   try {
     let configRes;
     try {
-      configRes = await fetch(`${API_BASE}/api/config`, { headers: authHeaders() });
+      configRes = await fetch(`${API_BASE}/api/config`, { credentials: 'include', headers: authHeaders() });
     } catch (netErr) {
       console.error('[Horizon] Failed to fetch /api/config:', netErr);
       renderStatusNotice({
