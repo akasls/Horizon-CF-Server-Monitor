@@ -740,6 +740,11 @@ button {
   font-size: 0.68rem;
   color: var(--text-soft);
   font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .ping-cell__val {
