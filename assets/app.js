@@ -168,6 +168,15 @@ const t = (key, params = {}) => {
   return str;
 };
 
+function getCustomCarrierName(type) {
+  const key = `custom_${type}_name`;
+  const custom = state.config && state.config[key];
+  if (typeof custom === 'string' && custom.trim().length > 0) {
+    return custom.trim();
+  }
+  return t(type);
+}
+
 // ==================== 2. 全局状态 State ====================
 const state = {
   config: null,
@@ -1169,19 +1178,19 @@ function renderServerCard(server) {
         <!-- 平行放置延迟 (4 列并排) -->
         <div class="parallel-pings">
           <div class="ping-cell">
-            <span class="ping-cell__label">电信</span>
+            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('ct'))}">${escapeHtml(getCustomCarrierName('ct'))}</span>
             <span class="ping-cell__val ${pingTone(server.ping_ct)}">${fmtPing(server.ping_ct)}</span>
           </div>
           <div class="ping-cell">
-            <span class="ping-cell__label">联通</span>
+            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('cu'))}">${escapeHtml(getCustomCarrierName('cu'))}</span>
             <span class="ping-cell__val ${pingTone(server.ping_cu)}">${fmtPing(server.ping_cu)}</span>
           </div>
           <div class="ping-cell">
-            <span class="ping-cell__label">移动</span>
+            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('cm'))}">${escapeHtml(getCustomCarrierName('cm'))}</span>
             <span class="ping-cell__val ${pingTone(server.ping_cm)}">${fmtPing(server.ping_cm)}</span>
           </div>
           <div class="ping-cell">
-            <span class="ping-cell__label">BGP</span>
+            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('bd'))}">${escapeHtml(getCustomCarrierName('bd'))}</span>
             <span class="ping-cell__val ${pingTone(server.ping_bd)}">${fmtPing(server.ping_bd)}</span>
           </div>
         </div>
@@ -1431,10 +1440,15 @@ function renderActiveDetailChart(server) {
       </div>
     `;
   } else if (state.detailTab === 'ping') {
-    const ctSeries = { key: 'ct', label: '电信', values: history.map(h => safeNum(h.ping_ct, null)) };
-    const cuSeries = { key: 'cu', label: '联通', values: history.map(h => safeNum(h.ping_cu, null)) };
-    const cmSeries = { key: 'cm', label: '移动', values: history.map(h => safeNum(h.ping_cm, null)) };
-    const bdSeries = { key: 'bd', label: 'BGP', values: history.map(h => safeNum(h.ping_bd, null)) };
+    const ctName = getCustomCarrierName('ct');
+    const cuName = getCustomCarrierName('cu');
+    const cmName = getCustomCarrierName('cm');
+    const bdName = getCustomCarrierName('bd');
+
+    const ctSeries = { key: 'ct', label: ctName, values: history.map(h => safeNum(h.ping_ct, null)) };
+    const cuSeries = { key: 'cu', label: cuName, values: history.map(h => safeNum(h.ping_cu, null)) };
+    const cmSeries = { key: 'cm', label: cmName, values: history.map(h => safeNum(h.ping_cm, null)) };
+    const bdSeries = { key: 'bd', label: bdName, values: history.map(h => safeNum(h.ping_bd, null)) };
 
     svgHtml = buildSvgLineChart([ctSeries, cuSeries, cmSeries, bdSeries], {
       min: 0,
@@ -1444,10 +1458,10 @@ function renderActiveDetailChart(server) {
 
     legendHtml = `
       <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>电信</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>联通</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>移动</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>BGP</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>${escapeHtml(ctName)}</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>${escapeHtml(cuName)}</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>${escapeHtml(cmName)}</span>
+        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>${escapeHtml(bdName)}</span>
       </div>
     `;
   } else if (state.detailTab === 'disk') {
@@ -1899,6 +1913,10 @@ function generateDemoData() {
       site_title: 'Horizon Monitor · 本地预览',
       version: '2.8.6',
       is_public: true,
+      custom_ct_name: '电信',
+      custom_cu_name: '联通',
+      custom_cm_name: '移动',
+      custom_bd_name: 'BGP',
       theme_options: { default_appearance: 'Dark' }
     },
     servers: demoServers,
