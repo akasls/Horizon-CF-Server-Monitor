@@ -72,6 +72,11 @@ const I18N = {
     cu: '联通',
     cm: '移动',
     bd: 'BGP',
+    node_1: '节点1',
+    node_2: '节点2',
+    node_3: '节点3',
+    node_4: '节点4',
+    lossRate: '丢包率',
     read: '读取',
     write: '写入',
     speedIn: '下行速率',
@@ -148,6 +153,11 @@ const I18N = {
     cu: 'CU',
     cm: 'CM',
     bd: 'BGP',
+    node_1: 'Node 1',
+    node_2: 'Node 2',
+    node_3: 'Node 3',
+    node_4: 'Node 4',
+    lossRate: 'Loss Rate',
     read: 'Read',
     write: 'Write',
     speedIn: 'Inbound',
@@ -168,13 +178,58 @@ const t = (key, params = {}) => {
   return str;
 };
 
-function getCustomCarrierName(type) {
-  const key = `custom_${type}_name`;
-  const custom = state.config && state.config[key];
+function getCustomCarrierName(key) {
+  if (!key) return '';
+  const configKey = key.startsWith('node_') ? `${key}_name` : `custom_${key}_name`;
+  const custom = state.config && state.config[configKey];
   if (typeof custom === 'string' && custom.trim().length > 0) {
     return custom.trim();
   }
-  return t(type);
+  return t(key);
+}
+
+// 8 大延迟与丢包监控节点定义 (按顺序包含基础4线路及新增4自定义节点)
+const ALL_PING_NODES = [
+  { key: 'ct', pingField: 'ping_ct', lossField: 'loss_ct', color: '#00d4aa' },
+  { key: 'cu', pingField: 'ping_cu', lossField: 'loss_cu', color: '#3b82f6' },
+  { key: 'cm', pingField: 'ping_cm', lossField: 'loss_cm', color: '#f59e0b' },
+  { key: 'bd', pingField: 'ping_bd', lossField: 'loss_bd', color: '#ef4444' },
+  { key: 'node_1', pingField: 'ping_node_1', lossField: 'loss_node_1', color: '#8b5cf6' },
+  { key: 'node_2', pingField: 'ping_node_2', lossField: 'loss_node_2', color: '#ec4899' },
+  { key: 'node_3', pingField: 'ping_node_3', lossField: 'loss_node_3', color: '#06b6d4' },
+  { key: 'node_4', pingField: 'ping_node_4', lossField: 'loss_node_4', color: '#10b981' }
+];
+
+function isProbeMetricPresent(val) {
+  if (val === undefined || val === null || val === false || val === 'false' || val === '') {
+    return false;
+  }
+  const n = safeNum(val, null);
+  return n !== null && n > 0;
+}
+
+function isLossMetricPresent(val) {
+  if (val === undefined || val === null || val === false || val === 'false' || val === '') {
+    return false;
+  }
+  const n = safeNum(val, null);
+  return n !== null && n >= 0;
+}
+
+function isNodePresent(server, history, pingField, lossField) {
+  if (server) {
+    if (isProbeMetricPresent(server[pingField]) || isLossMetricPresent(server[lossField])) {
+      return true;
+    }
+  }
+  if (Array.isArray(history) && history.length > 0) {
+    for (const h of history) {
+      if (isProbeMetricPresent(h[pingField]) || isLossMetricPresent(h[lossField])) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // ==================== 2. 全局状态 State ====================
@@ -766,17 +821,19 @@ function buildSvgLineChart(series, options = {}) {
     const pts = s.values.map((v, i) => `${i === 0 ? 'M' : 'L'}${getX(i).toFixed(2)},${getY(v).toFixed(2)}`).join(' ');
     const lineClass = sIdx === 1 ? 'line line--secondary' : sIdx === 2 ? 'line line--tertiary' : sIdx === 3 ? 'line line--quaternary' : 'line';
     const pointTone = sIdx === 1 ? 'secondary' : sIdx === 2 ? 'tertiary' : sIdx === 3 ? 'quaternary' : '';
+    const strokeAttr = s.color ? `style="stroke:${s.color}"` : '';
+    const fillAttr = s.color ? `style="fill:${s.color};stroke:${s.color}"` : '';
 
     if (s.showArea !== false && sIdx === 0) {
       const areaPath = `${pts} L ${getX(s.values.length - 1).toFixed(2)},${(padding.top + innerH).toFixed(2)} L ${getX(0).toFixed(2)},${(padding.top + innerH).toFixed(2)} Z`;
       areaSvg = `<path class="area" d="${areaPath}"></path>`;
     }
 
-    linesSvg += `<path class="${lineClass}" d="${pts}"></path>`;
+    linesSvg += `<path class="${lineClass}" ${strokeAttr} d="${pts}"></path>`;
 
     pointsSvg += s.values.map((v, i) => {
       const title = s.titles?.[i] || `${s.label}: ${fmtY(v)}`;
-      return `<circle class="chart-point" data-tone="${pointTone}" cx="${getX(i).toFixed(2)}" cy="${getY(v).toFixed(2)}" r="2.5" data-note="${escapeHtml(title)}"></circle>`;
+      return `<circle class="chart-point" data-tone="${pointTone}" ${fillAttr} cx="${getX(i).toFixed(2)}" cy="${getY(v).toFixed(2)}" r="2.5" data-note="${escapeHtml(title)}"></circle>`;
     }).join('');
   });
 
@@ -1172,28 +1229,25 @@ function renderServerCard(server) {
           <span class="info-val">${priceText}</span>
         </div>
 
-        <!-- 分割线 2 -->
-        <div class="card-divider"></div>
-
-        <!-- 平行放置延迟 (4 列并排) -->
-        <div class="parallel-pings">
-          <div class="ping-cell">
-            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('ct'))}">${escapeHtml(getCustomCarrierName('ct'))}</span>
-            <span class="ping-cell__val ${pingTone(server.ping_ct)}">${fmtPing(server.ping_ct)}</span>
-          </div>
-          <div class="ping-cell">
-            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('cu'))}">${escapeHtml(getCustomCarrierName('cu'))}</span>
-            <span class="ping-cell__val ${pingTone(server.ping_cu)}">${fmtPing(server.ping_cu)}</span>
-          </div>
-          <div class="ping-cell">
-            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('cm'))}">${escapeHtml(getCustomCarrierName('cm'))}</span>
-            <span class="ping-cell__val ${pingTone(server.ping_cm)}">${fmtPing(server.ping_cm)}</span>
-          </div>
-          <div class="ping-cell">
-            <span class="ping-cell__label" title="${escapeHtml(getCustomCarrierName('bd'))}">${escapeHtml(getCustomCarrierName('bd'))}</span>
-            <span class="ping-cell__val ${pingTone(server.ping_bd)}">${fmtPing(server.ping_bd)}</span>
-          </div>
-        </div>
+        ${(() => {
+          const activeCardNodes = ALL_PING_NODES.filter(node => isProbeMetricPresent(server[node.pingField]));
+          if (!activeCardNodes.length) return '';
+          return `
+            <div class="card-divider"></div>
+            <div class="parallel-pings" style="grid-template-columns: repeat(${activeCardNodes.length}, 1fr)">
+              ${activeCardNodes.map(node => {
+                const name = getCustomCarrierName(node.key);
+                const val = server[node.pingField];
+                return `
+                  <div class="ping-cell">
+                    <span class="ping-cell__label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                    <span class="ping-cell__val ${pingTone(val)}">${fmtPing(val)}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        })()}
       </div>
     </article>
   `;
@@ -1302,6 +1356,17 @@ async function renderDetailPage() {
           <div class="spec-item"><span class="spec-label">${t('specTrafficTotal')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx)} · ↑ ${fmtBytes(server.net_tx)}</span></div>
           <div class="spec-item"><span class="spec-label">${t('specConns')}</span><span class="spec-val">TCP: ${server.tcp_conn || 0} · UDP: ${server.udp_conn || 0}</span></div>
           <div class="spec-item"><span class="spec-label">${t('specProcesses')}</span><span class="spec-val">${server.processes || '--'} 进程</span></div>
+          ${(() => {
+            const activeNodesForSpec = ALL_PING_NODES.filter(node => isNodePresent(server, state.detailHistory, node.pingField, node.lossField));
+            return activeNodesForSpec.map(node => {
+              const name = getCustomCarrierName(node.key);
+              const p = server ? server[node.pingField] : null;
+              const l = server ? server[node.lossField] : null;
+              const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : '--';
+              const lText = isLossMetricPresent(l) ? ` · ${t('lossRate')} ${Math.round(l)}%` : '';
+              return `<div class="spec-item"><span class="spec-label">${escapeHtml(name)}</span><span class="spec-val">${pText}${lText}</span></div>`;
+            }).join('');
+          })()}
         </div>
       </div>
     </div>
@@ -1440,30 +1505,63 @@ function renderActiveDetailChart(server) {
       </div>
     `;
   } else if (state.detailTab === 'ping') {
-    const ctName = getCustomCarrierName('ct');
-    const cuName = getCustomCarrierName('cu');
-    const cmName = getCustomCarrierName('cm');
-    const bdName = getCustomCarrierName('bd');
+    // 动态筛选存在有效 ping_x 或 loss_x 的活跃节点 (不存在的节点，包括以前的 bd，均不展示)
+    const activeNodes = ALL_PING_NODES.filter(node =>
+      isNodePresent(server, history, node.pingField, node.lossField)
+    );
 
-    const ctSeries = { key: 'ct', label: ctName, values: history.map(h => safeNum(h.ping_ct, null)) };
-    const cuSeries = { key: 'cu', label: cuName, values: history.map(h => safeNum(h.ping_cu, null)) };
-    const cmSeries = { key: 'cm', label: cmName, values: history.map(h => safeNum(h.ping_cm, null)) };
-    const bdSeries = { key: 'bd', label: bdName, values: history.map(h => safeNum(h.ping_bd, null)) };
+    if (activeNodes.length === 0) {
+      svgHtml = `<svg class="chart-svg" viewBox="0 0 960 280"><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="var(--text-soft)" font-size="13">${escapeHtml(t('chartNoData'))}</text></svg>`;
+      legendHtml = '';
+      summaryText = t('chartNoData');
+    } else {
+      const seriesList = activeNodes.map(node => {
+        const name = getCustomCarrierName(node.key);
+        return {
+          key: node.key,
+          label: name,
+          color: node.color,
+          values: history.map(h => {
+            const v = safeNum(h[node.pingField], null);
+            return (v != null && v > 0) ? v : null;
+          }),
+          titles: history.map(h => {
+            const p = safeNum(h[node.pingField], null);
+            const l = safeNum(h[node.lossField], null);
+            const pText = (p != null && p > 0) ? `${Math.round(p)}ms` : '--';
+            const lText = (l != null && l >= 0) ? ` · 丢包 ${Math.round(l)}%` : '';
+            return `${name}: ${pText}${lText}`;
+          })
+        };
+      });
 
-    svgHtml = buildSvgLineChart([ctSeries, cuSeries, cmSeries, bdSeries], {
-      min: 0,
-      fmtY: (v) => `${Math.round(v)}ms`,
-      xLabels
-    });
+      svgHtml = buildSvgLineChart(seriesList, {
+        min: 0,
+        fmtY: (v) => `${Math.round(v)}ms`,
+        xLabels
+      });
 
-    legendHtml = `
-      <div class="chart-legend">
-        <span class="legend-item ${state.detailHiddenSeries.has('ct') ? 'is-disabled' : ''}" data-key="ct"><span class="legend-dot"></span>${escapeHtml(ctName)}</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cu') ? 'is-disabled' : ''}" data-key="cu"><span class="legend-dot" style="background:var(--success)"></span>${escapeHtml(cuName)}</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('cm') ? 'is-disabled' : ''}" data-key="cm"><span class="legend-dot" style="background:var(--warning)"></span>${escapeHtml(cmName)}</span>
-        <span class="legend-item ${state.detailHiddenSeries.has('bd') ? 'is-disabled' : ''}" data-key="bd"><span class="legend-dot" style="background:var(--danger)"></span>${escapeHtml(bdName)}</span>
-      </div>
-    `;
+      legendHtml = `
+        <div class="chart-legend">
+          ${activeNodes.map(node => {
+            const name = getCustomCarrierName(node.key);
+            const disabled = state.detailHiddenSeries.has(node.key) ? 'is-disabled' : '';
+            return `<span class="legend-item ${disabled}" data-key="${node.key}"><span class="legend-dot" style="background:${node.color}"></span>${escapeHtml(name)}</span>`;
+          }).join('')}
+        </div>
+      `;
+
+      // 顶部摘要展示各活跃节点的最新延迟与丢包
+      const summaryItems = activeNodes.map(node => {
+        const name = getCustomCarrierName(node.key);
+        const p = server ? server[node.pingField] : null;
+        const l = server ? server[node.lossField] : null;
+        const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : '--';
+        const lText = isLossMetricPresent(l) ? ` (${Math.round(l)}%)` : '';
+        return `${name}: ${pText}${lText}`;
+      });
+      summaryText = summaryItems.join(' · ');
+    }
   } else if (state.detailTab === 'disk') {
     const readSeries = { key: 'read_bps', label: `${t('read')} (B/s)`, values: history.map(h => safeNum(h.disk?.read_bps || h.disk_read_bps, 0)) };
     const writeSeries = { key: 'write_bps', label: `${t('write')} (B/s)`, values: history.map(h => safeNum(h.disk?.write_bps || h.disk_write_bps, 0)) };
@@ -1917,6 +2015,10 @@ function generateDemoData() {
       custom_cu_name: '联通',
       custom_cm_name: '移动',
       custom_bd_name: 'BGP',
+      node_1_name: '香港专线',
+      node_2_name: '日本中继',
+      node_3_name: '北美直连',
+      node_4_name: '欧洲骨干',
       theme_options: { default_appearance: 'Dark' }
     },
     servers: demoServers,
@@ -1957,6 +2059,18 @@ function generateMockHistory(server, hours = 24) {
       ping_cu: server.ping_cu ? clamp(server.ping_cu + (Math.random() * 4 - 2), 2, 999) : null,
       ping_cm: server.ping_cm ? clamp(server.ping_cm + (Math.random() * 4 - 2), 2, 999) : null,
       ping_bd: server.ping_bd ? clamp(server.ping_bd + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_node_1: server.ping_node_1 ? clamp(server.ping_node_1 + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_node_2: server.ping_node_2 ? clamp(server.ping_node_2 + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_node_3: server.ping_node_3 ? clamp(server.ping_node_3 + (Math.random() * 4 - 2), 2, 999) : null,
+      ping_node_4: server.ping_node_4 ? clamp(server.ping_node_4 + (Math.random() * 4 - 2), 2, 999) : null,
+      loss_ct: server.loss_ct != null ? server.loss_ct : 0,
+      loss_cu: server.loss_cu != null ? server.loss_cu : 0,
+      loss_cm: server.loss_cm != null ? server.loss_cm : 0,
+      loss_bd: server.loss_bd != null ? server.loss_bd : 0,
+      loss_node_1: server.loss_node_1 != null ? server.loss_node_1 : null,
+      loss_node_2: server.loss_node_2 != null ? server.loss_node_2 : null,
+      loss_node_3: server.loss_node_3 != null ? server.loss_node_3 : null,
+      loss_node_4: server.loss_node_4 != null ? server.loss_node_4 : null,
       disk: {
         read_bps: Math.max(1024, (server.disk?.read_bps || 10240) + (Math.random() * 8000 - 4000)),
         write_bps: Math.max(1024, (server.disk?.write_bps || 5120) + (Math.random() * 4000 - 2000))
