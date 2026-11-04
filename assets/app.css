@@ -53,6 +53,32 @@
   --grid-line: #1e293b;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-appearance="light"]) {
+    color-scheme: dark;
+    --bg-color: #0b0f19;
+    --card-bg: #111827;
+    --card-bg-subtle: #172033;
+    --card-bg-hover: #141c2e;
+    --primary: #3b82f6;
+    --primary-rgb: 59, 130, 246;
+    --primary-light: rgba(59, 130, 246, 0.12);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-soft: #64748b;
+    --success: #34d399;
+    --success-rgb: 52, 211, 153;
+    --danger: #f87171;
+    --danger-rgb: 248, 113, 113;
+    --warning: #fbbf24;
+    --border-color: #1e293b;
+    --border-hover: #334155;
+    --shadow: none;
+    --shadow-hover: none;
+    --grid-line: #1e293b;
+  }
+}
+
 /* View Transition API 主题扩散动画 */
 ::view-transition-old(root),
 ::view-transition-new(root) {

@@ -233,6 +233,17 @@ function isNodePresent(server, history, pingField, lossField) {
 }
 
 // ==================== 2. 全局状态 State ====================
+function getPreferredTheme() {
+  try {
+    const saved = localStorage.getItem('horizon_appearance');
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {}
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
+
 const state = {
   config: null,
   servers: [],
@@ -242,7 +253,7 @@ const state = {
   sysConfig: {},
   selectedGroup: 'ALL',
   searchQuery: '',
-  themeMode: localStorage.getItem('horizon_appearance') === 'light' ? 'light' : 'dark',
+  themeMode: getPreferredTheme(),
   currentRoute: { view: 'home', serverId: null },
   detailServer: null,
   detailHours: 24,
@@ -300,7 +311,8 @@ function fmtSpeed(n) {
     val /= 1024;
     i++;
   }
-  const digits = (i <= 2) ? 0 : 1;
+  // B/s 与 KB/s 整数显示；MB/s 及以上在数值小于 100 时保留 1 位小数，兼具精确度与敏锐的实时吞吐反馈
+  const digits = (i >= 2 && val < 100) ? 1 : 0;
   const text = digits === 0 ? String(Math.round(val)) : String(parseFloat(val.toFixed(digits)));
   return `${v < 0 ? '-' : ''}${text} ${BYTE_UNITS[i]}/s`;
 }
@@ -403,6 +415,8 @@ function escapeHtml(value) {
 function isServerOnline(server) {
   if (!server) return false;
   if (typeof server.is_online === 'boolean') return server.is_online;
+  if (server.is_online === '1' || server.is_online === 'true') return true;
+  if (server.is_online === '0' || server.is_online === 'false') return false;
   const last = safeNum(server.last_updated || server.timestamp);
   if (!last) return false;
   const interval = safeNum(server.report_interval, 60);
@@ -623,7 +637,12 @@ class MetricSocket {
       state.lastWsMessageTime = Date.now();
       try {
         const msg = JSON.parse(ev.data);
-        if (msg && msg.type === 'batchUpdate') this.onBatch(msg);
+        if (!msg) return;
+        if (msg.type === 'batchUpdate' || Array.isArray(msg.updates)) {
+          this.onBatch(msg);
+        } else if (msg.type === 'update' || msg.serverId) {
+          this.onBatch({ type: 'batchUpdate', updates: [msg] });
+        }
       } catch {}
     };
 
@@ -859,12 +878,49 @@ function buildSvgLineChart(series, options = {}) {
 
 // ==================== 8. 页面渲染模块 ====================
 
+// 动态重算全网实时汇总指标 (在线节点、实时吞吐速率与全网累计流量)
+function recalculateGlobalStats() {
+  if (!Array.isArray(state.servers)) return;
+
+  let totalSpeedIn = 0;
+  let totalSpeedOut = 0;
+  let totalNetRx = 0;
+  let totalNetTx = 0;
+  let onlineCount = 0;
+
+  for (const s of state.servers) {
+    const online = isServerOnline(s);
+    if (online) {
+      onlineCount++;
+      totalSpeedIn += safeNum(s.net_in_speed, 0);
+      totalSpeedOut += safeNum(s.net_out_speed, 0);
+    }
+    totalNetRx += safeNum(s.net_rx, 0);
+    totalNetTx += safeNum(s.net_tx, 0);
+  }
+
+  if (!state.stats) {
+    state.stats = { total: 0, online: 0, offline: 0, globalSpeedIn: 0, globalSpeedOut: 0, globalNetTx: 0, globalNetRx: 0 };
+  }
+
+  state.stats.total = state.servers.length;
+  state.stats.online = onlineCount;
+  state.stats.offline = Math.max(0, state.servers.length - onlineCount);
+  state.stats.globalSpeedIn = totalSpeedIn;
+  state.stats.globalSpeedOut = totalSpeedOut;
+
+  if (totalNetRx > 0 || totalNetTx > 0) {
+    state.stats.globalNetRx = totalNetRx;
+    state.stats.globalNetTx = totalNetTx;
+  }
+}
+
 // 8.1 顶部汇总统计方块
 function renderGlobalStats() {
   const root = document.getElementById('global-stats');
   if (!root) return;
 
-  const total = safeNum(state.stats?.total, 0);
+  const total = safeNum(state.stats?.total, state.servers.length);
   const online = safeNum(state.stats?.online, 0);
   const globalSpeedIn = safeNum(state.stats?.globalSpeedIn, 0);
   const globalSpeedOut = safeNum(state.stats?.globalSpeedOut, 0);
@@ -1199,7 +1255,7 @@ function renderServerCard(server) {
             <svg class="row-icon" viewBox="0 0 24 24"><path d="M7 10v12M7 10l-3 3M7 10l3 3M17 14V2m0 0 3 3m-3-3-3 3"/></svg>
             ${t('rate')}
           </span>
-          <span class="info-val">↑ ${fmtSpeed(server.net_out_speed)}  ↓ ${fmtSpeed(server.net_in_speed)}</span>
+          <span class="info-val">↑ ${fmtSpeed(online ? server.net_out_speed : 0)}  ↓ ${fmtSpeed(online ? server.net_in_speed : 0)}</span>
         </div>
 
         <!-- 流量 (纯文本自动换算TB) -->
@@ -1351,7 +1407,7 @@ async function renderDetailPage() {
           <span>${t('panelNetwork')}</span>
         </div>
         <div class="detail-panel__content spec-list">
-          <div class="spec-item"><span class="spec-label">${t('specNetSpeed')}</span><span class="spec-val">↓ ${fmtSpeed(server.net_in_speed)} · ↑ ${fmtSpeed(server.net_out_speed)}</span></div>
+          <div class="spec-item"><span class="spec-label">${t('specNetSpeed')}</span><span class="spec-val">↓ ${fmtSpeed(online ? server.net_in_speed : 0)} · ↑ ${fmtSpeed(online ? server.net_out_speed : 0)}</span></div>
           <div class="spec-item"><span class="spec-label">${t('specTrafficMonth')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx_monthly)} · ↑ ${fmtBytes(server.net_tx_monthly)}</span></div>
           <div class="spec-item"><span class="spec-label">${t('specTrafficTotal')}</span><span class="spec-val">↓ ${fmtBytes(server.net_rx)} · ↑ ${fmtBytes(server.net_tx)}</span></div>
           <div class="spec-item"><span class="spec-label">${t('specConns')}</span><span class="spec-val">TCP: ${server.tcp_conn || 0} · UDP: ${server.udp_conn || 0}</span></div>
@@ -2183,6 +2239,20 @@ async function loadInitialData() {
       if (titleEl) titleEl.textContent = state.config.site_title;
     }
 
+    // 若访客未手动保存偏好，优先检查后台是否指定默认主题；若未指定或设为 auto 则保持自适应设备
+    try {
+      const saved = localStorage.getItem('horizon_appearance');
+      if (!saved) {
+        const backendTheme = state.config?.theme_options?.default_appearance || state.config?.theme_options?.defaultThemeMode;
+        if (typeof backendTheme === 'string') {
+          const lower = backendTheme.toLowerCase();
+          if (lower === 'dark') state.themeMode = 'dark';
+          else if (lower === 'light') state.themeMode = 'light';
+          else if (lower === 'auto') state.themeMode = getPreferredTheme();
+        }
+      }
+    } catch {}
+
     applyAppearance();
 
     let serversData;
@@ -2249,6 +2319,22 @@ async function loadInitialData() {
     state.regionStats = serversData?.regionStats || {};
     state.sysConfig = serversData?.sysConfig || {};
 
+    // 载入 DO 内存中最新的采样回放数据，确保首屏网络速率精准实时
+    if (Array.isArray(serversData?.latestReportUpdates)) {
+      for (const u of serversData.latestReportUpdates) {
+        const srv = state.serversMap.get(u.serverId);
+        if (!srv) continue;
+        const samples = Array.isArray(u.samples) ? u.samples : (u.data ? [{ ts: u.ts, data: u.data }] : []);
+        for (const s of samples) {
+          const m = s.data || s.payload || s.metrics || s || {};
+          Object.assign(srv, m);
+          if (s.ts) srv.last_updated = s.ts;
+        }
+      }
+    }
+
+    recalculateGlobalStats();
+
     hideStatusNotice();
 
     loadExchangeRates().then(() => {
@@ -2283,8 +2369,7 @@ function startDemoTick() {
       s.net_out_speed = Math.max(1024, s.net_out_speed + (Math.random() - 0.5) * 1500000);
     }
 
-    state.stats.globalSpeedIn = state.servers.reduce((sum, s) => sum + s.net_in_speed, 0);
-    state.stats.globalSpeedOut = state.servers.reduce((sum, s) => sum + s.net_out_speed, 0);
+    recalculateGlobalStats();
 
     if (state.currentRoute.view === 'home') {
       renderGlobalStats();
@@ -2311,15 +2396,26 @@ function initWebSocket() {
         const srv = state.serversMap.get(u.serverId);
         if (!srv) continue;
 
-        for (const s of u.samples || []) {
-          const m = s.data || s.payload || s.metrics || {};
+        const sampleList = Array.isArray(u.samples) && u.samples.length > 0
+          ? u.samples
+          : (u.data ? [{ ts: u.ts, data: u.data }] : []);
+
+        for (const s of sampleList) {
+          const m = s.data || s.payload || s.metrics || s || {};
           Object.assign(srv, m);
-          srv.last_updated = s.ts || Date.now();
+          if (s.ts) srv.last_updated = s.ts;
+          hasChange = true;
+        }
+
+        if (!sampleList.length && (u.cpu !== undefined || u.net_in_speed !== undefined || u.net_out_speed !== undefined)) {
+          Object.assign(srv, u);
+          if (u.ts) srv.last_updated = u.ts;
           hasChange = true;
         }
       }
 
       if (hasChange) {
+        recalculateGlobalStats();
         if (state.currentRoute.view === 'home') {
           renderGlobalStats();
           renderServersGrid();
@@ -2343,6 +2439,21 @@ function startPollingWatchdog() {
           state.servers = res.servers || [];
           state.serversMap = new Map(state.servers.map(s => [s.id, s]));
           state.stats = res.stats || state.stats;
+
+          if (Array.isArray(res.latestReportUpdates)) {
+            for (const u of res.latestReportUpdates) {
+              const srv = state.serversMap.get(u.serverId);
+              if (!srv) continue;
+              const samples = Array.isArray(u.samples) ? u.samples : (u.data ? [{ ts: u.ts, data: u.data }] : []);
+              for (const s of samples) {
+                const m = s.data || s.payload || s.metrics || s || {};
+                Object.assign(srv, m);
+                if (s.ts) srv.last_updated = s.ts;
+              }
+            }
+          }
+
+          recalculateGlobalStats();
           renderGlobalStats();
           renderServersGrid();
         } else if (state.currentRoute.view === 'detail' && state.currentRoute.serverId) {
@@ -2534,6 +2645,20 @@ function bindEvents() {
   });
 
   window.addEventListener('hashchange', handleRouteChange);
+
+  // 监听系统/设备日间与夜间模式切换，在未手动覆盖时自适应同步
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        try {
+          if (!localStorage.getItem('horizon_appearance')) {
+            state.themeMode = e.matches ? 'dark' : 'light';
+            applyAppearance();
+          }
+        } catch {}
+      });
+    } catch {}
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

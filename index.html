@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-appearance="dark">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -7,6 +7,19 @@
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
   <meta id="theme-color-meta" name="theme-color" content="#0b0f19">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('horizon_appearance');
+        var theme = (saved === 'light' || saved === 'dark')
+          ? saved
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.dataset.appearance = theme;
+        var meta = document.getElementById('theme-color-meta');
+        if (meta) meta.content = theme === 'dark' ? '#0b0f19' : '#f1f5f9';
+      } catch (e) {}
+    })();
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
