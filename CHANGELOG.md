@@ -4,6 +4,34 @@
 
 ---
 
+## [v1.5.1] - 2026-11-25
+
+### 🩹 主题自适应、Turnstile 403、网络速率与丢包口径修复
+
+- **主题：改为遵循后端 `preferred_theme`**
+  - 之前读的是不存在的 `theme_options.default_appearance` / `defaultThemeMode`，实际后端字段是 `/api/config` 顶层的 `preferred_theme`（`auto` / `light` / `dark`），现已改为读取该字段。
+  - `auto` → 跟随设备 `prefers-color-scheme`；`light` / `dark` → 使用后台配置。用户手动切换后仍以 `localStorage.horizon_appearance` 为准。
+  - 首屏 `<head>` 内联脚本 + CSS 媒体查询兜底，避免主题闪烁。
+
+- **Turnstile：修复「初始化异常 HTTP 403 on /api/config」**
+  - 根因：首屏请求 `/api/config` 时 `authHeaders()` 会附带 1 小时前（已失效）的 `X-Turnstile-Verified`，后端对**携带 Turnstile 头**的 `/api/config` 做完整校验，凭证过期即返回 `403`，前端把 403 直接抛成“监控系统初始化异常”。
+  - 修复：拆分 `authHeaders()`（仅登录态）/ `apiHeaders()`（登录态 + Turnstile 凭证）；首屏用**不带 Turnstile 头**的请求探测配置（后端对该组合放行）。
+  - 任何 403 现在都会**先清除本地失效凭证**，再弹人机验证并带新凭证重试一次，不再把 403 当成致命错误。
+  - 本地凭证超过 55 分钟自动丢弃；验证失败时展示「人机安全验证」提示并提供重新验证，而不是「初始化异常」。
+
+- **网络速率：统一口径，顶部与卡片不再互相矛盾**
+  - 移除用 `latestReportUpdates` 的 1 秒采样值覆盖 `net_in_speed` / `net_out_speed` 的逻辑。采样瞬时值与上报级速率不是同一量化口径，混用会让顶部汇总与单卡速率对不上。
+  - 顶部汇总统一由 `recalculateGlobalStats()` 从 `servers[]` 聚合，且只统计在线节点；与卡片渲染读取同一份字段，结构上保证「顶部 = Σ卡片」。
+
+- **网络速率：避免旧样本回退**
+  - WebSocket `batchUpdate` 应用样本时增加时间戳单调性校验，乱序/回放样本不会覆盖更新鲜的数据，速率不再来回跳变。
+
+- **丢包与延迟：补齐 `null` = 超时语义**
+  - `null`（本轮探测全部超时）现在显示「超时」并保持高亮，不再被当成「未配置」隐藏；`false` / 缺失仍按未配置隐藏。
+  - `0` 丢包是有效值，正常显示 `0%`（实测数据 `loss_ct=0 / loss_cu=16 / loss_cm=50 / loss_bd=0` 均正确呈现）。
+
+---
+
 ## [v1.5.0] - 2026-11-05
 
 ### 🌓 系统设备默认主题自适应与实时网络吞吐统计优化
