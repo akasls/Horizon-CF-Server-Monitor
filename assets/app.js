@@ -240,10 +240,13 @@ function isNodePresent(server, history, pingField, lossField) {
 }
 
 // ==================== 2. 全局状态 State ====================
+// 取值优先级必须与 <head> 内联脚本完全一致，否则首帧配色和 JS 启动后算出来的配色会打架，产生一次可见的切换
 function getPreferredTheme() {
   try {
     const saved = localStorage.getItem('horizon_appearance');
     if (saved === 'light' || saved === 'dark') return saved;
+    const backendMode = localStorage.getItem('horizon_theme_default');
+    if (backendMode === 'light' || backendMode === 'dark') return backendMode;
   } catch {}
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'dark';
@@ -2709,7 +2712,11 @@ function bindEvents() {
     try {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
         try {
-          if (!localStorage.getItem('horizon_appearance')) {
+          // 只有在「没有手动选择」且「后端默认不是固定 light/dark」时才跟随系统
+          const manual = localStorage.getItem('horizon_appearance');
+          const backendMode = localStorage.getItem('horizon_theme_default');
+          const followsSystem = !manual && backendMode !== 'light' && backendMode !== 'dark';
+          if (followsSystem) {
             state.themeMode = e.matches ? 'dark' : 'light';
             applyAppearance();
           }
