@@ -1727,12 +1727,16 @@ function updateConnectionState(st) {
 function applyAppearance() {
   const root = document.documentElement;
   const effective = state.themeMode === 'light' ? 'light' : 'dark';
+  const canvasColor = effective === 'dark' ? '#0b0f19' : '#f1f5f9';
 
   root.dataset.appearance = effective;
+  // 与 <head> 内联脚本保持一致：运行时切换也要同步 color-scheme 与画布底色
+  root.style.colorScheme = effective;
+  root.style.backgroundColor = canvasColor;
 
   const themeMeta = document.getElementById('theme-color-meta');
   if (themeMeta) {
-    themeMeta.content = effective === 'dark' ? '#0b0f19' : '#f1f5f9';
+    themeMeta.content = canvasColor;
   }
 
   const btnTheme = document.getElementById('btn-theme');
@@ -2313,13 +2317,15 @@ async function loadInitialData() {
     }
 
     // 访客未手动选择外观时，遵循后端 preferred_theme：auto 跟随设备 / light / dark
+    // 同时把后端模式缓存下来，供 <head> 内联脚本在下次首帧直接使用，避免「先深后浅」的闪烁
     try {
       const saved = localStorage.getItem('horizon_appearance');
+      const backendRaw = String(state.config?.preferred_theme || '').toLowerCase();
+      const backendMode = (backendRaw === 'light' || backendRaw === 'dark') ? backendRaw : 'auto';
+      localStorage.setItem('horizon_theme_default', backendMode);
+
       if (!saved) {
-        const backendTheme = String(state.config?.preferred_theme || '').toLowerCase();
-        if (backendTheme === 'dark') state.themeMode = 'dark';
-        else if (backendTheme === 'light') state.themeMode = 'light';
-        else state.themeMode = getPreferredTheme();
+        state.themeMode = backendMode === 'auto' ? getPreferredTheme() : backendMode;
       }
     } catch {}
 
