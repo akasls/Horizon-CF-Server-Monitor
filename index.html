@@ -22,14 +22,15 @@
   </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <!-- 主题静态资源带版本号：/assets 由后端以 immutable 长缓存返回，不加版本号会导致老访客长期拿旧文件 -->
+  <link rel="icon" href="assets/logo.svg?v=1.5.2" type="image/svg+xml">
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- 纯静态/跨域部署时可通过 meta[name=apiBase] 配置 Worker 地址，多个地址以英文逗号分隔 -->
   <!-- <meta name="apiBase" content="https://your-cf-server-monitor.workers.dev"> -->
-  <link rel="stylesheet" href="assets/app.css">
+  <link rel="stylesheet" href="assets/app.css?v=1.5.2">
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -37,7 +38,7 @@
     <header class="navbar">
       <div class="logo" id="brand-link" role="button" tabindex="0" title="返回首页">
         <span class="logo-mark" id="brand-mark">
-          <img src="assets/logo.svg" alt="Horizon Logo" class="site-icon" onerror="this.style.display='none'">
+          <img src="assets/logo.svg?v=1.5.2" alt="Horizon Logo" class="site-icon" onerror="this.style.display='none'">
         </span>
         <span id="site-title-text" class="logo-text">Horizon Monitor</span>
       </div>
@@ -130,6 +131,6 @@
     </div>
   </noscript>
 
-  <script src="assets/app.js" type="module"></script>
+  <script src="assets/app.js?v=1.5.2" type="module"></script>
 </body>
 </html>
