@@ -4,6 +4,23 @@
 
 ---
 
+## [v1.5.3] - 2026-11-26
+
+### 🌓 消除首屏主题闪烁 + 顶栏取消吸顶
+
+- **首屏不再「先深后浅」闪一下**
+  - `<head>` 内联脚本现在会在第一帧同时锁定 `data-appearance`、`color-scheme` 与画布底色（`html` 内联 `background-color`），浏览器不会再用默认底色先画一遍。
+  - 后端 `preferred_theme` 缓存到 `localStorage.horizon_theme_default`，内联脚本按「手动选择 → 后端默认 → 设备偏好」三级取值，第二次起访问直接以正确主题绘制，不会在拿到 `/api/config` 后二次切换。
+  - `applyAppearance()` 同步维护 `color-scheme` 与画布底色，运行时切换（点按钮 / 系统模式变化）也不会留下旧的底色。
+  - `app.css` 给 `html` 增加 `background-color: var(--bg-color)`，body 之外区域不再露出默认底。
+
+- **顶栏取消吸顶**
+  - `.navbar` 由 `position: sticky; top: 0` 改为普通流式（`position: relative`），页面下拉时顶栏随内容滚出视口，不再固定遮挡内容。
+
+- 静态资源版本号同步升到 `?v=1.5.3`。
+
+---
+
 ## [v1.5.2] - 2026-11-26
 
 ### 🔁 静态资源版本号：彻底解决「改了代码线上还是旧界面」

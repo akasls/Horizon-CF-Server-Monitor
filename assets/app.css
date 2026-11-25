@@ -116,6 +116,8 @@ html, body, * {
 
 html {
   min-height: 100%;
+  /* 画布底色跟随主题，避免 body 之外的区域出现默认白/黑底 */
+  background-color: var(--bg-color);
 }
 
 /* 扁平纯色背景 */
@@ -159,7 +161,7 @@ button {
   flex: 1 0 auto;
 }
 
-/* Navbar */
+/* Navbar：普通流式布局，随页面滚动，不做吸顶 */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -168,8 +170,7 @@ button {
   padding: 0.8rem 1.75rem;
   background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
 }
 

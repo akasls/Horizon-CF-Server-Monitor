@@ -129,6 +129,7 @@ Horizon-CF-Server-Monitor/
 
 详细版本演进与改动说明请参阅 [CHANGELOG.md](CHANGELOG.md)。
 
+- **v1.5.3** (2026-11-26): 首屏内联脚本锁定 color-scheme 与画布底色并缓存后端默认外观，消除「先深后浅」闪烁；顶栏取消 sticky 吸顶，随页面滚动。
 - **v1.5.2** (2026-11-26): 静态资源加版本查询串（`app.js?v=` / `app.css?v=` / `logo.svg?v=`），解决 `/assets/*` 被 `immutable` 长缓存导致升级后浏览器仍用旧文件的问题。
 - **v1.5.1** (2026-11-25): 主题改为遵循后端 `preferred_theme`（auto/light/dark）；修复首次加载携带失效 Turnstile 凭证导致 `HTTP 403 on /api/config` 的「初始化异常」；网络速率统一以 `servers[].net_in_speed` 为唯一口径，顶部与卡片保证同源；补齐 `null` = 超时的延迟显示。
 - **v1.5.0** (2026-11-05): 默认主题自适应设备系统深浅色偏好，支持首屏零闪烁与动态系统切换同步；全面重构全网网络速率实时计算引擎，支持 WebSocket 增量动态聚合与 DO 采样回放，精确过滤离线节点残留指标并优化高精实时吞吐格式化。

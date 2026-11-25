@@ -11,10 +11,20 @@
     (function () {
       try {
         var saved = localStorage.getItem('horizon_appearance');
-        var theme = (saved === 'light' || saved === 'dark')
-          ? saved
-          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.documentElement.dataset.appearance = theme;
+        var mode = localStorage.getItem('horizon_theme_default');
+        var theme;
+        if (saved === 'light' || saved === 'dark') {
+          theme = saved;
+        } else if (mode === 'light' || mode === 'dark') {
+          theme = mode;
+        } else {
+          theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+        }
+        var root = document.documentElement;
+        root.dataset.appearance = theme;
+        // 首帧就锁定画布底色与 color-scheme，避免浏览器先用默认底色绘制导致「先深后浅」的闪烁
+        root.style.colorScheme = theme;
+        root.style.backgroundColor = theme === 'dark' ? '#0b0f19' : '#f1f5f9';
         var meta = document.getElementById('theme-color-meta');
         if (meta) meta.content = theme === 'dark' ? '#0b0f19' : '#f1f5f9';
       } catch (e) {}
@@ -23,14 +33,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <!-- 主题静态资源带版本号：/assets 由后端以 immutable 长缓存返回，不加版本号会导致老访客长期拿旧文件 -->
-  <link rel="icon" href="assets/logo.svg?v=1.5.2" type="image/svg+xml">
+  <link rel="icon" href="assets/logo.svg?v=1.5.3" type="image/svg+xml">
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- 纯静态/跨域部署时可通过 meta[name=apiBase] 配置 Worker 地址，多个地址以英文逗号分隔 -->
   <!-- <meta name="apiBase" content="https://your-cf-server-monitor.workers.dev"> -->
-  <link rel="stylesheet" href="assets/app.css?v=1.5.2">
+  <link rel="stylesheet" href="assets/app.css?v=1.5.3">
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -38,7 +48,7 @@
     <header class="navbar">
       <div class="logo" id="brand-link" role="button" tabindex="0" title="返回首页">
         <span class="logo-mark" id="brand-mark">
-          <img src="assets/logo.svg?v=1.5.2" alt="Horizon Logo" class="site-icon" onerror="this.style.display='none'">
+          <img src="assets/logo.svg?v=1.5.3" alt="Horizon Logo" class="site-icon" onerror="this.style.display='none'">
         </span>
         <span id="site-title-text" class="logo-text">Horizon Monitor</span>
       </div>
@@ -131,6 +141,6 @@
     </div>
   </noscript>
 
-  <script src="assets/app.js?v=1.5.2" type="module"></script>
+  <script src="assets/app.js?v=1.5.3" type="module"></script>
 </body>
 </html>
