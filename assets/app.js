@@ -208,6 +208,11 @@ function isProbeMetricPresent(val) {
   return n !== null && n > 0;
 }
 
+// null（严格）＝该轮探测全部超时/未取到有效 RTT，后端要求前端显示 Timeout，不能当作「未配置」隐藏
+function isTimeoutMetric(val) {
+  return val === null;
+}
+
 function isLossMetricPresent(val) {
   if (val === undefined || val === null || val === false || val === 'false' || val === '') {
     return false;
@@ -218,13 +223,15 @@ function isLossMetricPresent(val) {
 
 function isNodePresent(server, history, pingField, lossField) {
   if (server) {
-    if (isProbeMetricPresent(server[pingField]) || isLossMetricPresent(server[lossField])) {
+    const p = server[pingField];
+    if (isProbeMetricPresent(p) || isTimeoutMetric(p) || isLossMetricPresent(server[lossField])) {
       return true;
     }
   }
   if (Array.isArray(history) && history.length > 0) {
     for (const h of history) {
-      if (isProbeMetricPresent(h[pingField]) || isLossMetricPresent(h[lossField])) {
+      const p = h[pingField];
+      if (isProbeMetricPresent(p) || isTimeoutMetric(p) || isLossMetricPresent(h[lossField])) {
         return true;
       }
     }
@@ -448,15 +455,17 @@ function getAuthToken() {
   }
 }
 
+// 后端 /api/config 的 turnstile_verified 凭证有效期 3600s；本地只做保守预留
+const CRED_TTL_MS = 55 * 60 * 1000;
+
 function loadTurnstileCred() {
   try {
-    const official = localStorage.getItem('turnstile_verified');
-    if (official) return official;
     const raw = localStorage.getItem(CRED_KEY);
     if (!raw) return null;
     const obj = JSON.parse(raw);
-    if (!obj.value || Date.now() - obj.savedAt > 55 * 60 * 1000) {
+    if (!obj.value || !obj.savedAt || Date.now() - obj.savedAt > CRED_TTL_MS) {
       localStorage.removeItem(CRED_KEY);
+      localStorage.removeItem('turnstile_verified');
       return null;
     }
     return obj.value;
@@ -466,16 +475,32 @@ function loadTurnstileCred() {
 }
 
 function saveTurnstileCred(val) {
+  if (!val) return;
   try {
     localStorage.setItem('turnstile_verified', val);
     localStorage.setItem(CRED_KEY, JSON.stringify({ value: val, savedAt: Date.now() }));
   } catch {}
 }
 
+// 凭证被后端判定失效（403）时必须彻底清掉，否则每次首屏都会带着坏凭证再次 403
+function clearTurnstileCred() {
+  try {
+    localStorage.removeItem('turnstile_verified');
+    localStorage.removeItem(CRED_KEY);
+  } catch {}
+}
+
+// 只带登录态，不带 Turnstile 凭证。用于探测站点配置（/api/config 无 Turnstile 头时后端放行）
 function authHeaders() {
   const headers = {};
   const token = getAuthToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+// 业务请求头：登录态 + 有效 Turnstile 凭证
+function apiHeaders() {
+  const headers = authHeaders();
   const cred = loadTurnstileCred();
   if (cred) headers['X-Turnstile-Verified'] = cred;
   return headers;
@@ -483,12 +508,16 @@ function authHeaders() {
 
 async function request(path, options = {}) {
   const url = `${API_BASE}${path}`;
-  const headers = { ...authHeaders(), ...(options.headers || {}) };
+  const headers = { ...apiHeaders(), ...(options.headers || {}) };
   const res = await fetch(url, { credentials: 'include', ...options, headers });
-  if (res.status === 403 && state.config && state.config.turnstile_enabled && !options._retried) {
-    await ensureTurnstile();
+
+  if (res.status === 403 && !options._retried) {
+    // 403 一律视为「凭证无效/缺失」，清掉本地凭证并重新走人机验证，绝不直接抛错
+    clearTurnstileCred();
+    await ensureTurnstile({ force: true });
     return request(path, { ...options, _retried: true });
   }
+
   if (!res.ok) {
     let errData = null;
     try { errData = await res.json(); } catch {}
@@ -515,16 +544,17 @@ function loadTurnstileScript() {
 }
 
 let _tsVerifyPromise = null;
-async function ensureTurnstile() {
-  if (loadTurnstileCred()) return;
+async function ensureTurnstile({ force = false } = {}) {
+  if (!force && loadTurnstileCred()) return true;
   if (_tsVerifyPromise) return _tsVerifyPromise;
 
   _tsVerifyPromise = (async () => {
     const siteKey = state.config?.turnstile_site_key;
-    if (!siteKey) return;
+    // 没有 site_key 说明站点未开启全局验证（或配置还没取到），无需也不能弹窗
+    if (!siteKey) return false;
     await loadTurnstileScript();
 
-    await new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       const root = document.getElementById('overlay-root') || document.body;
       const overlay = document.createElement('div');
       overlay.className = 'probe-overlay';
@@ -547,22 +577,24 @@ async function ensureTurnstile() {
           theme: state.themeMode === 'dark' ? 'dark' : 'light',
           callback: async (token) => {
             try {
+              // 用一次性 token 换长期凭证：这一步必须优先用 Token 头，不能带旧的 Verified 头
               const res = await fetch(`${API_BASE}/api/config`, {
                 credentials: 'include',
                 headers: { 'X-Turnstile-Token': token, ...authHeaders() }
               });
+              if (!res.ok) throw new Error(`verify ${res.status}`);
               const data = await res.json();
               if (data.turnstile_verified) saveTurnstileCred(data.turnstile_verified);
               state.config = data;
               overlay.remove();
-              resolve();
+              resolve(!!data.turnstile_verified);
             } catch {
               errBox.textContent = '验证失败，请重试';
               try { window.turnstile.reset(); } catch {}
             }
           },
           'error-callback': () => {
-            errBox.textContent = '验证组件出错，请刷新重试';
+            errBox.textContent = '验证组件加载失败，请检查网络或关闭广告拦截插件后刷新';
           }
         });
       } catch (e) {
@@ -1191,13 +1223,15 @@ function renderServerCard(server) {
     trafficValText = totalBytes > 0 ? `累计 ${fmtBytes(totalBytes, 1)}` : '无限制';
   }
 
-  // 平行放置延迟排版 (0 或 null 为未测试/无数据，显示 --)
+  // 延迟显示：null = 该轮探测超时（后端约定显示 Timeout），0/false/空 = 未配置或未取样
   const fmtPing = (val) => {
+    if (isTimeoutMetric(val)) return '超时';
     const n = safeNum(val, 0);
     if (!val || n <= 0) return '--';
     return `${Math.round(n)}ms`;
   };
   const pingTone = (val) => {
+    if (isTimeoutMetric(val)) return 'ping-cell__val--bad';
     const num = safeNum(val, 0);
     if (num <= 0) return '';
     if (num < 80) return 'ping-cell__val--good';
@@ -1286,7 +1320,11 @@ function renderServerCard(server) {
         </div>
 
         ${(() => {
-          const activeCardNodes = ALL_PING_NODES.filter(node => isProbeMetricPresent(server[node.pingField]));
+          // 包含超时节点（null），只有真正未配置（false/undefined）的才隐藏
+          const activeCardNodes = ALL_PING_NODES.filter(node => {
+            const p = server[node.pingField];
+            return isProbeMetricPresent(p) || isTimeoutMetric(p);
+          });
           if (!activeCardNodes.length) return '';
           return `
             <div class="card-divider"></div>
@@ -1418,7 +1456,7 @@ async function renderDetailPage() {
               const name = getCustomCarrierName(node.key);
               const p = server ? server[node.pingField] : null;
               const l = server ? server[node.lossField] : null;
-              const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : '--';
+              const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : (isTimeoutMetric(p) ? '超时' : '--');
               const lText = isLossMetricPresent(l) ? ` · ${t('lossRate')} ${Math.round(l)}%` : '';
               return `<div class="spec-item"><span class="spec-label">${escapeHtml(name)}</span><span class="spec-val">${pText}${lText}</span></div>`;
             }).join('');
@@ -1582,9 +1620,10 @@ function renderActiveDetailChart(server) {
             return (v != null && v > 0) ? v : null;
           }),
           titles: history.map(h => {
-            const p = safeNum(h[node.pingField], null);
+            const raw = h[node.pingField];
+            const p = safeNum(raw, null);
             const l = safeNum(h[node.lossField], null);
-            const pText = (p != null && p > 0) ? `${Math.round(p)}ms` : '--';
+            const pText = (p != null && p > 0) ? `${Math.round(p)}ms` : (isTimeoutMetric(raw) ? '超时' : '--');
             const lText = (l != null && l >= 0) ? ` · 丢包 ${Math.round(l)}%` : '';
             return `${name}: ${pText}${lText}`;
           })
@@ -1612,7 +1651,7 @@ function renderActiveDetailChart(server) {
         const name = getCustomCarrierName(node.key);
         const p = server ? server[node.pingField] : null;
         const l = server ? server[node.lossField] : null;
-        const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : '--';
+        const pText = isProbeMetricPresent(p) ? `${Math.round(p)}ms` : (isTimeoutMetric(p) ? '超时' : '--');
         const lText = isLossMetricPresent(l) ? ` (${Math.round(l)}%)` : '';
         return `${name}: ${pText}${lText}`;
       });
@@ -2205,6 +2244,26 @@ function enableDemoMode() {
   startDemoTick();
 }
 
+// 取站点配置：先不带 Turnstile 头（后端放行），失败才走人机验证后重取
+async function fetchSiteConfig() {
+  const url = `${API_BASE}/api/config`;
+
+  const res = await fetch(url, { credentials: 'include', headers: authHeaders() });
+  if (res.ok) return res.json();
+
+  if (res.status === 403) {
+    clearTurnstileCred();
+    const verified = await ensureTurnstile({ force: true }).catch(() => false);
+    if (verified) {
+      const retry = await fetch(url, { credentials: 'include', headers: apiHeaders() });
+      if (retry.ok) return retry.json();
+      throw Object.assign(new Error(`HTTP ${retry.status} on /api/config`), { status: retry.status });
+    }
+  }
+
+  throw Object.assign(new Error(`HTTP ${res.status} on /api/config`), { status: res.status });
+}
+
 async function loadInitialData() {
   if (shouldEnableDemoMode()) {
     enableDemoMode();
@@ -2212,26 +2271,40 @@ async function loadInitialData() {
   }
 
   try {
-    let configRes;
+    // /api/config 在「不带 Turnstile 头」时后端放行，用于探测站点配置；
+    // 带失效的 X-Turnstile-Verified 反而会 403 —— 所以首屏绝不能带旧凭证。
+    let configData;
     try {
-      configRes = await fetch(`${API_BASE}/api/config`, { credentials: 'include', headers: authHeaders() });
+      configData = await fetchSiteConfig();
     } catch (netErr) {
-      console.error('[Horizon] Failed to fetch /api/config:', netErr);
-      renderStatusNotice({
-        type: 'error',
-        title: '无法连接到监控后端',
-        desc: '请求 /api/config 失败，请检查网络或后端 Worker 运行状态。',
-        actionText: '重新连接',
-        onAction: () => location.reload()
-      });
-      return;
+      if (!netErr.status) {
+        console.error('[Horizon] Failed to fetch /api/config:', netErr);
+        renderStatusNotice({
+          type: 'error',
+          title: '无法连接到监控后端',
+          desc: '请求 /api/config 失败，请检查网络或后端 Worker 运行状态。',
+          actionText: '重新连接',
+          onAction: () => location.reload()
+        });
+        return;
+      }
+      if (netErr.status === 403) {
+        renderStatusNotice({
+          type: 'security',
+          title: '人机安全验证',
+          desc: '站点已开启人机验证，但验证组件未能完成验证。请刷新页面重试，或检查网络/广告拦截插件。',
+          actionText: '重新验证',
+          onAction: () => {
+            clearTurnstileCred();
+            location.reload();
+          }
+        });
+        return;
+      }
+      throw netErr;
     }
 
-    if (!configRes.ok) {
-      throw new Error(`HTTP ${configRes.status} on /api/config`);
-    }
-
-    state.config = await configRes.json();
+    state.config = configData;
 
     if (state.config?.site_title) {
       document.title = state.config.site_title;
@@ -2239,17 +2312,14 @@ async function loadInitialData() {
       if (titleEl) titleEl.textContent = state.config.site_title;
     }
 
-    // 若访客未手动保存偏好，优先检查后台是否指定默认主题；若未指定或设为 auto 则保持自适应设备
+    // 访客未手动选择外观时，遵循后端 preferred_theme：auto 跟随设备 / light / dark
     try {
       const saved = localStorage.getItem('horizon_appearance');
       if (!saved) {
-        const backendTheme = state.config?.theme_options?.default_appearance || state.config?.theme_options?.defaultThemeMode;
-        if (typeof backendTheme === 'string') {
-          const lower = backendTheme.toLowerCase();
-          if (lower === 'dark') state.themeMode = 'dark';
-          else if (lower === 'light') state.themeMode = 'light';
-          else if (lower === 'auto') state.themeMode = getPreferredTheme();
-        }
+        const backendTheme = String(state.config?.preferred_theme || '').toLowerCase();
+        if (backendTheme === 'dark') state.themeMode = 'dark';
+        else if (backendTheme === 'light') state.themeMode = 'light';
+        else state.themeMode = getPreferredTheme();
       }
     } catch {}
 
@@ -2274,17 +2344,16 @@ async function loadInitialData() {
         return;
       }
 
-      // 403: Turnstile 人机安全验证拦截
+      // 403: 人机验证在 request() 内已自动重试过一次，走到这里说明验证仍未通过
       if (status === 403) {
         renderStatusNotice({
           type: 'security',
           title: '人机安全验证',
-          desc: '站点已开启安全防护，请完成验证以查看节点数据。',
+          desc: '站点已开启人机验证，验证未能通过。请刷新页面重新验证。',
           actionText: '重新验证',
           onAction: () => {
-            ensureTurnstile()
-              .then(() => loadInitialData())
-              .catch((e) => console.warn('[Horizon] Turnstile retry failed:', e));
+            clearTurnstileCred();
+            location.reload();
           }
         });
         return;
@@ -2319,19 +2388,9 @@ async function loadInitialData() {
     state.regionStats = serversData?.regionStats || {};
     state.sysConfig = serversData?.sysConfig || {};
 
-    // 载入 DO 内存中最新的采样回放数据，确保首屏网络速率精准实时
-    if (Array.isArray(serversData?.latestReportUpdates)) {
-      for (const u of serversData.latestReportUpdates) {
-        const srv = state.serversMap.get(u.serverId);
-        if (!srv) continue;
-        const samples = Array.isArray(u.samples) ? u.samples : (u.data ? [{ ts: u.ts, data: u.data }] : []);
-        for (const s of samples) {
-          const m = s.data || s.payload || s.metrics || s || {};
-          Object.assign(srv, m);
-          if (s.ts) srv.last_updated = s.ts;
-        }
-      }
-    }
+    // 网络速率以 servers[].net_in_speed / net_out_speed（上报级速率）为唯一口径。
+    // 不能再拿 latestReportUpdates 里 1 秒采样的瞬时值覆盖同名字段：
+    // 两者量化口径不同，混用会让顶部汇总与卡片速率互相矛盾。
 
     recalculateGlobalStats();
 
@@ -2401,16 +2460,22 @@ function initWebSocket() {
           : (u.data ? [{ ts: u.ts, data: u.data }] : []);
 
         for (const s of sampleList) {
+          // 乱序/回放的旧样本不允许覆盖更新鲜的数据，否则速率会来回跳变
+          const ts = safeNum(s.ts, 0);
+          if (ts && ts < safeNum(srv.last_updated, 0)) continue;
           const m = s.data || s.payload || s.metrics || s || {};
           Object.assign(srv, m);
-          if (s.ts) srv.last_updated = s.ts;
+          if (ts) srv.last_updated = ts;
           hasChange = true;
         }
 
         if (!sampleList.length && (u.cpu !== undefined || u.net_in_speed !== undefined || u.net_out_speed !== undefined)) {
-          Object.assign(srv, u);
-          if (u.ts) srv.last_updated = u.ts;
-          hasChange = true;
+          const ts = safeNum(u.ts, 0);
+          if (!ts || ts >= safeNum(srv.last_updated, 0)) {
+            Object.assign(srv, u);
+            if (ts) srv.last_updated = ts;
+            hasChange = true;
+          }
         }
       }
 
@@ -2439,19 +2504,6 @@ function startPollingWatchdog() {
           state.servers = res.servers || [];
           state.serversMap = new Map(state.servers.map(s => [s.id, s]));
           state.stats = res.stats || state.stats;
-
-          if (Array.isArray(res.latestReportUpdates)) {
-            for (const u of res.latestReportUpdates) {
-              const srv = state.serversMap.get(u.serverId);
-              if (!srv) continue;
-              const samples = Array.isArray(u.samples) ? u.samples : (u.data ? [{ ts: u.ts, data: u.data }] : []);
-              for (const s of samples) {
-                const m = s.data || s.payload || s.metrics || s || {};
-                Object.assign(srv, m);
-                if (s.ts) srv.last_updated = s.ts;
-              }
-            }
-          }
 
           recalculateGlobalStats();
           renderGlobalStats();
