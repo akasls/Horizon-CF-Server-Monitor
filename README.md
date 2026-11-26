@@ -129,6 +129,7 @@ Horizon-CF-Server-Monitor/
 
 详细版本演进与改动说明请参阅 [CHANGELOG.md](CHANGELOG.md)。
 
+- **v1.5.5** (2026-11-26): 站点标题缓存到 localStorage 并在解析阶段替换，消除站名闪跳；顶栏恢复 `position: sticky` 吸顶，保证移动端状态栏与顶栏连续。
 - **v1.5.4** (2026-11-26): 统一 `<head>` 内联脚本与 `getPreferredTheme()` 的取值优先级（手动 → 后端默认 → 设备），消除 DOMContentLoaded 时的二次配色切换。
 - **v1.5.3** (2026-11-26): 首屏内联脚本锁定 color-scheme 与画布底色并缓存后端默认外观，消除「先深后浅」闪烁；顶栏取消 sticky 吸顶，随页面滚动。
 - **v1.5.2** (2026-11-26): 静态资源加版本查询串（`app.js?v=` / `app.css?v=` / `logo.svg?v=`），解决 `/assets/*` 被 `immutable` 长缓存导致升级后浏览器仍用旧文件的问题。

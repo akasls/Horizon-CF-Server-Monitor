@@ -161,7 +161,7 @@ button {
   flex: 1 0 auto;
 }
 
-/* Navbar：普通流式布局，随页面滚动，不做吸顶 */
+/* Navbar：吸顶固定，移动端浏览器状态栏与顶栏视觉连续 */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -170,7 +170,8 @@ button {
   padding: 0.8rem 1.75rem;
   background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 100;
 }
 

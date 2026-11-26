@@ -2314,9 +2314,12 @@ async function loadInitialData() {
     state.config = configData;
 
     if (state.config?.site_title) {
-      document.title = state.config.site_title;
+      const siteTitle = String(state.config.site_title);
+      document.title = siteTitle;
       const titleEl = document.getElementById('site-title-text');
-      if (titleEl) titleEl.textContent = state.config.site_title;
+      if (titleEl) titleEl.textContent = siteTitle;
+      // 缓存站名，供下次首帧直接使用（避免标题闪跳）
+      try { localStorage.setItem('horizon_site_title', siteTitle); } catch {}
     }
 
     // 访客未手动选择外观时，遵循后端 preferred_theme：auto 跟随设备 / light / dark
